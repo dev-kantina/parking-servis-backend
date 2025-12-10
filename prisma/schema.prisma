@@ -1,0 +1,188 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMINISTRATOR
+  MANAGER
+  WORKER
+}
+
+enum WorkOrderPriority {
+  LOW
+MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WorkOrderStatus {
+  NEW
+  ACCEPTED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(WORKER)
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdWorkOrders  WorkOrder[]     @relation("CreatedBy")
+  assignedWorkOrders WorkOrder[]     @relation("AssignedTo")
+  timeLogs           TimeLog[]
+  comments           Comment[]
+  notifications      Notification[]
+  sentNotifications  Notification[]  @relation("SentBy")
+
+  @@map("users")
+}
+
+model WorkOrder {
+  id          String              @id @default(uuid())
+  title       String
+  description String
+  location    String
+  latitude    Float?
+  longitude   Float?
+  priority    WorkOrderPriority   @default(MEDIUM)
+  status      WorkOrderStatus     @default(NEW)
+  deadline    DateTime
+  resources   String?             // JSON string of required resources
+
+  createdById String
+  createdBy   User                @relation("CreatedBy", fields: [createdById], references: [id])
+
+  assignedToId String?
+  assignedTo   User?               @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  completedAt DateTime?
+
+  // Relations
+  statusHistory WorkOrderStatusHistory[]
+  attachments   Attachment[]
+  comments      Comment[]
+  timeLogs      TimeLog[]
+  notifications Notification[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([deadline])
+  @@map("work_orders")
+}
+
+model WorkOrderStatusHistory {
+  id           String          @id @default(uuid())
+  workOrderId  String
+  workOrder    WorkOrder       @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  oldStatus    WorkOrderStatus?
+  newStatus    WorkOrderStatus
+  note         String?
+
+  createdAt    DateTime        @default(now())
+
+  @@index([workOrderId])
+  @@map("work_order_status_history")
+}
+
+model Attachment {
+  id           String     @id @default(uuid())
+  workOrderId  String
+  workOrder    WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  fileName     String
+  fileUrl      String
+  fileType     String     // mime type
+  fileSize     Int        // in bytes
+
+  uploadedAt   DateTime   @default(now())
+
+  @@index([workOrderId])
+  @@map("attachments")
+}
+
+model Comment {
+  id           String     @id @default(uuid())
+  workOrderId  String
+  workOrder    WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+
+  content      String
+  isInternal   Boolean    @default(true)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([workOrderId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model TimeLog {
+  id               String     @id @default(uuid())
+  workOrderId      String
+  workOrder        WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  userId           String
+  user             User       @relation(fields: [userId], references: [id])
+
+  startTime        DateTime
+  endTime          DateTime?
+  duration         Int?       // in minutes, calculated
+  note             String?    // for manual entries or justifications
+  isManualEntry    Boolean    @default(false)
+
+  createdAt        DateTime   @default(now())
+
+  @@index([workOrderId])
+  @@index([userId])
+  @@map("time_logs")
+}
+
+model Notification {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+
+  workOrderId  String?
+  workOrder    WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  type         String     // NEW_ASSIGNMENT, STATUS_CHANGE, DEADLINE_WARNING, DEADLINE_EXCEEDED
+  title        String
+  message      String
+  isRead       Boolean    @default(false)
+
+  sentById     String?
+  sentBy       User?      @relation("SentBy", fields: [sentById], references: [id])
+
+  createdAt    DateTime   @default(now())
+
+  @@index([userId])
+  @@index([workOrderId])
+  @@index([isRead])
+  @@map("notifications")
+}
