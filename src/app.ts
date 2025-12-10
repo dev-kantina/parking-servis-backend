@@ -18,6 +18,9 @@ const app: Application = express();
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Browsers send Origin without trailing slash (e.g., https://site.com)
+      // If env var has slash (e.g., https://site.com/), strict equality fails.
+      // We process the env var to allow multiple comma-separated origins and remove slashes.
       const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
         .split(',')
         .map((url) => url.trim().replace(/\/$/, ''));
