@@ -17,7 +17,17 @@ const app: Application = express();
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+        .split(',')
+        .map((url) => url.trim().replace(/\/$/, ''));
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
