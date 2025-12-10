@@ -11,7 +11,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
 console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
 console.log('========================================');
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT) || 8080;
 console.log('Parsed PORT:', PORT, 'Type:', typeof PORT);
 
 async function startServer() {
