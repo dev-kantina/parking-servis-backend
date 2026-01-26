@@ -2,7 +2,7 @@ import prisma from '../config/database';
 import { hashPassword, comparePassword } from '../utils/passwordHash';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
 import { ApiError } from '../utils/ApiError';
-import { LoginDto, RegisterDto } from '../types';
+import { LoginDto, RegisterDto, ChangePasswordDto } from '../types';
 
 export class AuthService {
   async register(data: RegisterDto) {
@@ -111,6 +111,50 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async changePassword(userId: string, data: ChangePasswordDto) {
+    // Get user with password
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        password: true,
+      },
+    });
+
+    if (!user) {
+      throw ApiError.notFound('User not found');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await comparePassword(data.currentPassword, user.password);
+
+    if (!isCurrentPasswordValid) {
+      throw ApiError.badRequest('Trenutna lozinka nije ispravna');
+    }
+
+    // Check that new password is different
+    if (data.currentPassword === data.newPassword) {
+      throw ApiError.badRequest('Nova lozinka mora biti različita od trenutne lozinke');
+    }
+
+    // Validate new password length
+    if (data.newPassword.length < 6) {
+      throw ApiError.badRequest('Nova lozinka mora imati najmanje 6 karaktera');
+    }
+
+    // Hash and update password
+    const hashedNewPassword = await hashPassword(data.newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedNewPassword,
+      },
+    });
+
+    return { message: 'Lozinka je uspješno promijenjena' };
   }
 }
 

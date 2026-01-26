@@ -32,6 +32,16 @@ enum WorkOrderStatus {
   COMPLETED
 }
 
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -51,6 +61,8 @@ model User {
   comments           Comment[]
   notifications      Notification[]
   sentNotifications  Notification[]  @relation("SentBy")
+  weeklySchedules    EmployeeSchedule[]  // Weekly template
+  scheduleEntries    ScheduleEntry[]     // Actual date-specific entries
 
   @@map("users")
 }
@@ -139,6 +151,7 @@ model Comment {
 
   @@index([workOrderId])
   @@index([userId])
+  @@index([createdAt])  // For sorting comments by date
   @@map("comments")
 }
 
@@ -184,5 +197,59 @@ model Notification {
   @@index([userId])
   @@index([workOrderId])
   @@index([isRead])
+  @@index([userId, isRead]) // Composite index for fetching unread notifications
+  @@index([createdAt])      // For sorting by date
   @@map("notifications")
+}
+
+model Shift {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  startTime String   // Format: "HH:MM" (24-hour)
+  endTime   String   // Format: "HH:MM" (24-hour)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  weeklySchedules  EmployeeSchedule[]  // Weekly template entries
+  scheduleEntries  ScheduleEntry[]     // Actual date-specific entries
+
+  @@map("shifts")
+}
+
+// Weekly schedule template - defines recurring weekly patterns
+model EmployeeSchedule {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek DayOfWeek
+  shiftId   String
+  shift     Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, dayOfWeek]) // One shift per employee per day
+  @@index([userId])
+  @@index([shiftId])
+  @@index([dayOfWeek])
+  @@map("employee_schedules")
+}
+
+// Actual schedule entries - date-specific records for historical tracking
+model ScheduleEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date  // Specific date (no time component)
+  shiftId   String
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  note      String?  // Optional note (e.g., "Covered for Nikola")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date]) // One shift per employee per date
+  @@index([userId])
+  @@index([shiftId])
+  @@index([date])
+  @@map("schedule_entries")
 }

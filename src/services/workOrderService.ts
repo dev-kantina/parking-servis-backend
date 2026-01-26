@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import notificationService from './notificationService';
 import { WorkOrderStatus, WorkOrderPriority, Role } from '../../generated/prisma';
+import { startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 
 export interface CreateWorkOrderDto {
   title: string;
@@ -492,6 +493,274 @@ export class WorkOrderService {
       },
       nearingDeadline: deadlineStats,
       recentOrders,
+    };
+  }
+
+  async getCalendarData(year: number, month: number, workerId?: string) {
+    const monthStart = startOfMonth(new Date(year, month - 1));
+    const monthEnd = endOfMonth(new Date(year, month - 1));
+
+    // Get all work orders that overlap with this month
+    // A work order overlaps if:
+    // - Created before month end AND (not completed OR completed after month start)
+    // - OR deadline is within the month
+    const workOrders = await prisma.workOrder.findMany({
+      where: {
+        AND: [
+          // Work order was created before or during this month
+          { createdAt: { lte: monthEnd } },
+          // Either not completed, or completed during/after this month starts
+          {
+            OR: [
+              { completedAt: null },
+              { completedAt: { gte: monthStart } },
+            ],
+          },
+          // Optional worker filter
+          ...(workerId ? [{ assignedToId: workerId }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        location: true,
+        priority: true,
+        status: true,
+        createdAt: true,
+        deadline: true,
+        completedAt: true,
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+    });
+
+    // Calculate daily summary for the month
+    const dailySummary: Record<string, {
+      total: number;
+      completed: number;
+      inProgress: number;
+      overdue: number;
+      deadlines: number;
+    }> = {};
+
+    // Initialize all days in the month
+    const currentDate = new Date(monthStart);
+    while (currentDate <= monthEnd) {
+      const dateKey = currentDate.toISOString().split('T')[0];
+      dailySummary[dateKey] = {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        overdue: 0,
+        deadlines: 0,
+      };
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Process each work order
+    workOrders.forEach((wo) => {
+      const deadlineDate = wo.deadline.toISOString().split('T')[0];
+      const completedDate = wo.completedAt?.toISOString().split('T')[0];
+
+      // Count deadline
+      if (dailySummary[deadlineDate]) {
+        dailySummary[deadlineDate].deadlines++;
+      }
+
+      // Count completion
+      if (completedDate && dailySummary[completedDate]) {
+        dailySummary[completedDate].completed++;
+      }
+
+      // For each day the work order was active
+      const orderStart = new Date(Math.max(wo.createdAt.getTime(), monthStart.getTime()));
+      const orderEnd = wo.completedAt
+        ? new Date(Math.min(wo.completedAt.getTime(), monthEnd.getTime()))
+        : monthEnd;
+
+      const iterDate = new Date(orderStart);
+      while (iterDate <= orderEnd) {
+        const dateKey = iterDate.toISOString().split('T')[0];
+        if (dailySummary[dateKey]) {
+          dailySummary[dateKey].total++;
+
+          if (wo.status === WorkOrderStatus.IN_PROGRESS) {
+            dailySummary[dateKey].inProgress++;
+          }
+
+          // Check if overdue on this day
+          if (!wo.completedAt && iterDate > wo.deadline) {
+            dailySummary[dateKey].overdue++;
+          }
+        }
+        iterDate.setDate(iterDate.getDate() + 1);
+      }
+    });
+
+    // Format work orders for calendar
+    const calendarOrders = workOrders.map((wo) => {
+      const isOverdue = !wo.completedAt && new Date() > wo.deadline;
+      const isCompletedLate = wo.completedAt && wo.completedAt > wo.deadline;
+
+      return {
+        id: wo.id,
+        title: wo.title,
+        location: wo.location,
+        priority: wo.priority,
+        status: wo.status,
+        startDate: wo.createdAt.toISOString(),
+        endDate: wo.completedAt?.toISOString() || wo.deadline.toISOString(),
+        deadline: wo.deadline.toISOString(),
+        completedAt: wo.completedAt?.toISOString() || null,
+        isOverdue,
+        isCompletedLate,
+        worker: wo.assignedTo
+          ? {
+              id: wo.assignedTo.id,
+              name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}`,
+            }
+          : null,
+      };
+    });
+
+    // Get monthly statistics
+    const stats = {
+      total: workOrders.length,
+      completed: workOrders.filter((wo) => wo.status === WorkOrderStatus.COMPLETED).length,
+      inProgress: workOrders.filter((wo) => wo.status === WorkOrderStatus.IN_PROGRESS).length,
+      overdue: workOrders.filter((wo) => !wo.completedAt && new Date() > wo.deadline).length,
+      completedOnTime: workOrders.filter(
+        (wo) => wo.completedAt && wo.completedAt <= wo.deadline
+      ).length,
+      completedLate: workOrders.filter(
+        (wo) => wo.completedAt && wo.completedAt > wo.deadline
+      ).length,
+    };
+
+    return {
+      year,
+      month,
+      orders: calendarOrders,
+      dailySummary,
+      stats,
+    };
+  }
+
+  async getDayDetails(date: string, workerId?: string) {
+    const dayStart = startOfDay(new Date(date));
+    const dayEnd = endOfDay(new Date(date));
+
+    // Get work orders active on this day
+    const workOrders = await prisma.workOrder.findMany({
+      where: {
+        AND: [
+          { createdAt: { lte: dayEnd } },
+          {
+            OR: [
+              { completedAt: null },
+              { completedAt: { gte: dayStart } },
+            ],
+          },
+          ...(workerId ? [{ assignedToId: workerId }] : []),
+        ],
+      },
+      include: {
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        statusHistory: {
+          where: {
+            createdAt: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: [{ priority: 'desc' }, { deadline: 'asc' }],
+    });
+
+    // Categorize orders
+    const deadlinesToday = workOrders.filter(
+      (wo) => wo.deadline >= dayStart && wo.deadline <= dayEnd
+    );
+    const completedToday = workOrders.filter(
+      (wo) => wo.completedAt && wo.completedAt >= dayStart && wo.completedAt <= dayEnd
+    );
+    const createdToday = workOrders.filter(
+      (wo) => wo.createdAt >= dayStart && wo.createdAt <= dayEnd
+    );
+    const activeOnDay = workOrders.filter(
+      (wo) => wo.createdAt <= dayEnd && (!wo.completedAt || wo.completedAt >= dayStart)
+    );
+
+    return {
+      date,
+      deadlinesToday: deadlinesToday.map((wo) => ({
+        id: wo.id,
+        title: wo.title,
+        location: wo.location,
+        priority: wo.priority,
+        status: wo.status,
+        deadline: wo.deadline,
+        isOverdue: !wo.completedAt && new Date() > wo.deadline,
+        worker: wo.assignedTo
+          ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
+          : null,
+      })),
+      completedToday: completedToday.map((wo) => ({
+        id: wo.id,
+        title: wo.title,
+        location: wo.location,
+        priority: wo.priority,
+        completedAt: wo.completedAt,
+        wasLate: wo.completedAt && wo.completedAt > wo.deadline,
+        worker: wo.assignedTo
+          ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
+          : null,
+      })),
+      createdToday: createdToday.map((wo) => ({
+        id: wo.id,
+        title: wo.title,
+        location: wo.location,
+        priority: wo.priority,
+        status: wo.status,
+        deadline: wo.deadline,
+        worker: wo.assignedTo
+          ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
+          : null,
+      })),
+      activeOnDay: activeOnDay.length,
+      statusChangesToday: workOrders
+        .flatMap((wo) =>
+          wo.statusHistory.map((sh) => ({
+            workOrderId: wo.id,
+            workOrderTitle: wo.title,
+            oldStatus: sh.oldStatus,
+            newStatus: sh.newStatus,
+            timestamp: sh.createdAt,
+          }))
+        )
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
     };
   }
 }

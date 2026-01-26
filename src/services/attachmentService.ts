@@ -17,7 +17,7 @@ export class AttachmentService {
       throw ApiError.notFound('Radni nalog nije pronađen');
     }
 
-    // Upload to GCS
+    // Upload to R2 (Cloudflare Object Storage)
     const { publicUrl } = await storageService.uploadFile(data.file);
 
     // Create DB Record
@@ -43,14 +43,14 @@ export class AttachmentService {
       throw ApiError.notFound('Prilog nije pronađen');
     }
 
-    // Extract filename from URL or store GCS filename in DB separately?
-    // In our simplified storageService, we constructed publicUrl as `.../${fileName}`.
-    // So we can extract it back. Ideally, we should store `gcsFileName` in DB, but for now:
+    // Extract filename from URL (stored filename in R2)
+    // The publicUrl format is: https://pub-xxxxx.r2.dev/<fileName>
+    // So we extract the filename from the URL
     const urlParts = attachment.fileUrl.split('/');
-    const gcsFileName = urlParts[urlParts.length - 1];
+    const storedFileName = urlParts[urlParts.length - 1];
 
-    if (gcsFileName) {
-      await storageService.deleteFile(gcsFileName);
+    if (storedFileName) {
+      await storageService.deleteFile(storedFileName);
     }
 
     await prisma.attachment.delete({

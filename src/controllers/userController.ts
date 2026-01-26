@@ -151,6 +151,23 @@ export class UserController {
       next(error);
     }
   }
+
+  async getAvailableWorkers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { date } = req.query;
+
+      const workers = await userService.getAvailableWorkers(date as string | undefined);
+
+      const response: ApiResponse = {
+        success: true,
+        data: workers,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new UserController();

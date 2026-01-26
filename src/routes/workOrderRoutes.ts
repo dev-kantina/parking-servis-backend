@@ -17,6 +17,31 @@ router.get(
   workOrderController.getStats.bind(workOrderController)
 );
 
+// GET /api/work-orders/calendar - Kalendarski prikaz (samo za menadžere i administratore)
+router.get(
+  '/calendar',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  [
+    query('year').optional().isInt({ min: 2020, max: 2100 }).withMessage('Godina mora biti između 2020 i 2100'),
+    query('month').optional().isInt({ min: 1, max: 12 }).withMessage('Mjesec mora biti između 1 i 12'),
+    query('workerId').optional().isUUID().withMessage('ID radnika mora biti validan UUID'),
+    validate,
+  ],
+  workOrderController.getCalendarData.bind(workOrderController)
+);
+
+// GET /api/work-orders/calendar/:date - Detalji dana (samo za menadžere i administratore)
+router.get(
+  '/calendar/:date',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  [
+    param('date').isISO8601().withMessage('Datum mora biti u ISO8601 formatu'),
+    query('workerId').optional().isUUID().withMessage('ID radnika mora biti validan UUID'),
+    validate,
+  ],
+  workOrderController.getDayDetails.bind(workOrderController)
+);
+
 // GET /api/work-orders/my - Moji nalozi (za radnike)
 router.get(
   '/my',

@@ -29,6 +29,11 @@ export interface RegisterDto {
   role?: Role;
 }
 
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message?: string;

@@ -3,11 +3,13 @@ import { body } from 'express-validator';
 import authController from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validation';
+import { authLimiter } from '../middleware/rateLimiter';
 
 const router: IRouter = Router();
 
 router.post(
   '/register',
+  authLimiter,
   [
     body('email').isEmail().withMessage('Please provide a valid email'),
     body('password')
@@ -22,6 +24,7 @@ router.post(
 
 router.post(
   '/login',
+  authLimiter,
   [
     body('email').isEmail().withMessage('Please provide a valid email'),
     body('password').notEmpty().withMessage('Password is required'),
@@ -31,5 +34,18 @@ router.post(
 );
 
 router.get('/profile', authenticate, authController.getProfile.bind(authController));
+
+router.patch(
+  '/change-password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Trenutna lozinka je obavezna'),
+    body('newPassword')
+      .isLength({ min: 6 })
+      .withMessage('Nova lozinka mora imati najmanje 6 karaktera'),
+    validate,
+  ],
+  authController.changePassword.bind(authController)
+);
 
 export default router;

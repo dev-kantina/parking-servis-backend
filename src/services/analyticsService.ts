@@ -1,6 +1,6 @@
 import prisma from '../config/database';
-import { WorkOrderStatus, Role } from '../../generated/prisma';
-import { subMonths, format, endOfMonth } from 'date-fns';
+import { WorkOrderStatus, WorkOrderPriority, Role } from '../../generated/prisma';
+import { subMonths, format, endOfMonth, subHours, startOfDay, endOfDay } from 'date-fns';
 
 interface DateRange {
   startDate: Date;
@@ -181,5 +181,299 @@ export const analyticsService = {
     }
 
     return result;
-  }
+  },
+
+  async getLiveStatus() {
+    const now = new Date();
+    const oneHourAgo = subHours(now, 1);
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+
+    // Get work orders in progress with assigned worker details
+    const inProgressOrders = await prisma.workOrder.findMany({
+      where: {
+        status: WorkOrderStatus.IN_PROGRESS,
+      },
+      select: {
+        id: true,
+        title: true,
+        location: true,
+        priority: true,
+        deadline: true,
+        updatedAt: true,
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Get all active orders count by status
+    const ordersByStatus = await prisma.workOrder.groupBy({
+      by: ['status'],
+      _count: { status: true },
+      where: {
+        status: {
+          in: [
+            WorkOrderStatus.NEW,
+            WorkOrderStatus.ACCEPTED,
+            WorkOrderStatus.IN_PROGRESS,
+            WorkOrderStatus.ON_HOLD,
+          ],
+        },
+      },
+    });
+
+    // Get urgent/high priority active orders
+    const urgentOrders = await prisma.workOrder.findMany({
+      where: {
+        priority: { in: [WorkOrderPriority.URGENT, WorkOrderPriority.HIGH] },
+        status: {
+          in: [
+            WorkOrderStatus.NEW,
+            WorkOrderStatus.ACCEPTED,
+            WorkOrderStatus.IN_PROGRESS,
+            WorkOrderStatus.ON_HOLD,
+          ],
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        status: true,
+        location: true,
+        deadline: true,
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: [{ priority: 'desc' }, { deadline: 'asc' }],
+      take: 10,
+    });
+
+    // Get overdue orders
+    const overdueOrders = await prisma.workOrder.findMany({
+      where: {
+        deadline: { lt: now },
+        status: {
+          in: [
+            WorkOrderStatus.NEW,
+            WorkOrderStatus.ACCEPTED,
+            WorkOrderStatus.IN_PROGRESS,
+            WorkOrderStatus.ON_HOLD,
+          ],
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        status: true,
+        location: true,
+        deadline: true,
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { deadline: 'asc' },
+    });
+
+    // Get workers scheduled for today
+    const workersOnDuty = await prisma.scheduleEntry.findMany({
+      where: {
+        date: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+        user: { isActive: true },
+        shift: { isActive: true },
+      },
+      select: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            assignedWorkOrders: {
+              where: {
+                status: WorkOrderStatus.IN_PROGRESS,
+              },
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        },
+        shift: {
+          select: {
+            name: true,
+            startTime: true,
+            endTime: true,
+          },
+        },
+      },
+    });
+
+    // Get recent activity (status changes in the last hour)
+    const recentActivity = await prisma.workOrderStatusHistory.findMany({
+      where: {
+        createdAt: { gte: oneHourAgo },
+      },
+      select: {
+        id: true,
+        oldStatus: true,
+        newStatus: true,
+        createdAt: true,
+        workOrder: {
+          select: {
+            id: true,
+            title: true,
+            assignedTo: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    // Get today's stats
+    const todayStats = await prisma.workOrder.groupBy({
+      by: ['status'],
+      _count: { status: true },
+      where: {
+        createdAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      },
+    });
+
+    const todayCompleted = await prisma.workOrder.count({
+      where: {
+        completedAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      },
+    });
+
+    // Format response
+    const statusCounts = ordersByStatus.reduce(
+      (acc: Record<string, number>, curr) => ({
+        ...acc,
+        [curr.status]: curr._count.status,
+      }),
+      {
+        NEW: 0,
+        ACCEPTED: 0,
+        IN_PROGRESS: 0,
+        ON_HOLD: 0,
+      }
+    );
+
+    const todayCreated = todayStats.reduce((sum, s) => sum + s._count.status, 0);
+
+    return {
+      summary: {
+        inProgress: statusCounts.IN_PROGRESS,
+        new: statusCounts.NEW,
+        accepted: statusCounts.ACCEPTED,
+        onHold: statusCounts.ON_HOLD,
+        totalActive:
+          statusCounts.NEW +
+          statusCounts.ACCEPTED +
+          statusCounts.IN_PROGRESS +
+          statusCounts.ON_HOLD,
+        urgent: urgentOrders.filter((o) => o.priority === WorkOrderPriority.URGENT).length,
+        overdue: overdueOrders.length,
+        todayCreated,
+        todayCompleted,
+      },
+      inProgressOrders: inProgressOrders.map((order) => ({
+        id: order.id,
+        title: order.title,
+        location: order.location,
+        priority: order.priority,
+        deadline: order.deadline,
+        lastUpdated: order.updatedAt,
+        worker: order.assignedTo
+          ? {
+              id: order.assignedTo.id,
+              name: `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
+              phone: order.assignedTo.phone,
+            }
+          : null,
+      })),
+      urgentOrders: urgentOrders.map((order) => ({
+        id: order.id,
+        title: order.title,
+        priority: order.priority,
+        status: order.status,
+        location: order.location,
+        deadline: order.deadline,
+        worker: order.assignedTo
+          ? {
+              id: order.assignedTo.id,
+              name: `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
+            }
+          : null,
+      })),
+      overdueOrders: overdueOrders.map((order) => ({
+        id: order.id,
+        title: order.title,
+        priority: order.priority,
+        status: order.status,
+        location: order.location,
+        deadline: order.deadline,
+        worker: order.assignedTo
+          ? {
+              id: order.assignedTo.id,
+              name: `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
+            }
+          : null,
+      })),
+      workersOnDuty: workersOnDuty.map((entry) => ({
+        id: entry.user.id,
+        name: `${entry.user.firstName} ${entry.user.lastName}`,
+        phone: entry.user.phone,
+        shift: entry.shift,
+        currentTasks: entry.user.assignedWorkOrders,
+      })),
+      recentActivity: recentActivity.map((activity) => ({
+        id: activity.id,
+        timestamp: activity.createdAt,
+        oldStatus: activity.oldStatus,
+        newStatus: activity.newStatus,
+        workOrder: {
+          id: activity.workOrder.id,
+          title: activity.workOrder.title,
+        },
+        worker: activity.workOrder.assignedTo
+          ? `${activity.workOrder.assignedTo.firstName} ${activity.workOrder.assignedTo.lastName}`
+          : null,
+      })),
+      timestamp: now.toISOString(),
+    };
+  },
 };

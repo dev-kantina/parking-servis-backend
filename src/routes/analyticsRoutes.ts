@@ -13,5 +13,6 @@ router.get('/dashboard', analyticsController.getDashboardStats);
 router.get('/workers', analyticsController.getWorkerPerformance);
 router.get('/trends', analyticsController.getTrends);
 router.get('/export', analyticsController.exportData);
+router.get('/live', analyticsController.getLiveStatus);
 
 export default router;

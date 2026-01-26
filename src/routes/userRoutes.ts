@@ -24,6 +24,13 @@ router.get(
   userController.getWorkersWithStats.bind(userController)
 );
 
+// GET /api/users/workers/available - Radnici koji rade danas (ili na određeni dan)
+router.get(
+  '/workers/available',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  userController.getAvailableWorkers.bind(userController)
+);
+
 // GET /api/users - Lista svih korisnika (samo admin i menadžer)
 router.get(
   '/',

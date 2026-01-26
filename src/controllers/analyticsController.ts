@@ -62,7 +62,7 @@ export class AnalyticsController {
   async exportData(req: Request, res: Response) {
     try {
         const { type } = req.query;
-        
+
         if (type === 'workers') {
             await exportService.exportWorkerStats(res);
         } else {
@@ -71,6 +71,16 @@ export class AnalyticsController {
     } catch (error) {
         console.error('Export error:', error);
         res.status(500).json({ error: 'Failed to export data' });
+    }
+  }
+
+  async getLiveStatus(_req: Request, res: Response) {
+    try {
+      const liveStatus = await analyticsService.getLiveStatus();
+      res.json({ success: true, data: liveStatus });
+    } catch (error) {
+      console.error('Live status error:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch live status' });
     }
   }
 }

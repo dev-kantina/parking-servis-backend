@@ -260,6 +260,59 @@ export class UserService {
 
     return updatedUser;
   }
+
+  async getAvailableWorkers(date?: string) {
+    // If no date specified, use today
+    const targetDate = date ? new Date(date) : new Date();
+    // Reset time to start of day for comparison
+    targetDate.setHours(0, 0, 0, 0);
+
+    // Get workers who have a schedule entry for the specified date
+    const entries = await prisma.scheduleEntry.findMany({
+      where: {
+        date: targetDate,
+        user: {
+          role: Role.WORKER,
+          isActive: true,
+        },
+        shift: {
+          isActive: true,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        shift: {
+          select: {
+            id: true,
+            name: true,
+            startTime: true,
+            endTime: true,
+          },
+        },
+      },
+      orderBy: {
+        user: {
+          firstName: 'asc',
+        },
+      },
+    });
+
+    // Transform to include shift info directly
+    return entries.map((entry) => ({
+      id: entry.user.id,
+      firstName: entry.user.firstName,
+      lastName: entry.user.lastName,
+      email: entry.user.email,
+      shift: entry.shift,
+    }));
+  }
 }
 
 export default new UserService();

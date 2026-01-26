@@ -216,6 +216,53 @@ export class WorkOrderController {
       next(error);
     }
   }
+
+  async getCalendarData(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { year, month, workerId } = req.query;
+
+      const now = new Date();
+      const calendarYear = year ? parseInt(year as string, 10) : now.getFullYear();
+      const calendarMonth = month ? parseInt(month as string, 10) : now.getMonth() + 1;
+
+      const data = await workOrderService.getCalendarData(
+        calendarYear,
+        calendarMonth,
+        workerId as string | undefined
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getDayDetails(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { date } = req.params;
+      const { workerId } = req.query;
+
+      if (!date) {
+        throw new Error('Datum je obavezan');
+      }
+
+      const data = await workOrderService.getDayDetails(date, workerId as string | undefined);
+
+      const response: ApiResponse = {
+        success: true,
+        data,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new WorkOrderController();

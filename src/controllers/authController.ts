@@ -54,6 +54,25 @@ export class AuthController {
       next(error);
     }
   }
+
+  async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new Error('User not authenticated');
+      }
+
+      const result = await authService.changePassword(req.user.id, req.body);
+
+      const response: ApiResponse = {
+        success: true,
+        message: result.message,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new AuthController();

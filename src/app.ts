@@ -1,5 +1,6 @@
 import express, { Application, Request, Response, NextFunction } from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import dotenv from 'dotenv'
 import authRoutes from './routes/authRoutes'
 import workOrderRoutes from './routes/workOrderRoutes'
@@ -9,7 +10,10 @@ import timeLogRoutes from './routes/timeLogRoutes'
 import notificationRoutes from './routes/notificationRoutes'
 import attachmentRoutes from './routes/attachmentRoutes'
 import analyticsRoutes from './routes/analyticsRoutes'
+import shiftRoutes from './routes/shiftRoutes'
+import scheduleRoutes from './routes/scheduleRoutes'
 import { errorHandler } from './middleware/errorHandler'
+import { apiLimiter } from './middleware/rateLimiter'
 
 console.log('Loading dotenv config...')
 dotenv.config()
@@ -21,6 +25,7 @@ console.log('Setting up CORS...')
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3001',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[]
 
@@ -34,6 +39,26 @@ const corsOptions = {
 // Apply CORS to all routes (this handles OPTIONS preflight automatically)
 app.use(cors(corsOptions))
 console.log('✓ CORS configured with allowed origins:', allowedOrigins)
+
+// Security headers
+console.log('Setting up security headers...')
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:", process.env.R2_PUBLIC_URL || '*'],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow loading images from R2
+}))
+console.log('✓ Helmet security headers configured')
+
+// Apply general API rate limiting
+console.log('Setting up rate limiting...')
+app.use('/api', apiLimiter)
+console.log('✓ Rate limiting configured')
 
 // Log all requests
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -66,6 +91,8 @@ app.use('/api/time-logs', timeLogRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/attachments', attachmentRoutes)
+app.use('/api/shifts', shiftRoutes)
+app.use('/api/schedules', scheduleRoutes)
 console.log('✓ All routes configured')
 
 console.log('Setting up error handler...')

@@ -5,7 +5,7 @@ import { authenticate } from '../middleware/auth';
 
 const router: IRouter = Router();
 
-// Configure multer to store in memory buffer (so we can stream to GCS)
+// Configure multer to store in memory buffer (so we can upload to R2)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
