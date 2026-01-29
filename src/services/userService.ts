@@ -1,41 +1,41 @@
-import prisma from '../config/database';
-import { ApiError } from '../utils/ApiError';
-import { Role } from '../../generated/prisma';
-import { hashPassword } from '../utils/passwordHash';
+import prisma from '../config/database'
+import { ApiError } from '../utils/ApiError'
+import { Role } from '../../generated/prisma'
+import { hashPassword } from '../utils/passwordHash'
 
 export interface UserFilters {
-  role?: Role;
-  isActive?: boolean;
-  search?: string;
+  role?: Role
+  isActive?: boolean
+  search?: string
 }
 
 export interface CreateUserDto {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  role: Role;
-  phone?: string;
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  role: Role
+  phone?: string
 }
 
 export interface UpdateUserDto {
-  firstName?: string;
-  lastName?: string;
-  role?: Role;
-  phone?: string;
-  password?: string; // Opciono - za reset lozinke
+  firstName?: string
+  lastName?: string
+  role?: Role
+  phone?: string
+  password?: string // Opciono - za reset lozinke
 }
 
 export class UserService {
   async getAll(filters: UserFilters = {}) {
-    const where: any = {};
+    const where: any = {}
 
     if (filters.role) {
-      where.role = filters.role;
+      where.role = filters.role
     }
 
     if (filters.isActive !== undefined) {
-      where.isActive = filters.isActive;
+      where.isActive = filters.isActive
     }
 
     if (filters.search) {
@@ -43,7 +43,7 @@ export class UserService {
         { firstName: { contains: filters.search, mode: 'insensitive' } },
         { lastName: { contains: filters.search, mode: 'insensitive' } },
         { email: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      ]
     }
 
     const users = await prisma.user.findMany({
@@ -58,13 +58,10 @@ export class UserService {
         isActive: true,
         createdAt: true,
       },
-      orderBy: [
-        { role: 'asc' },
-        { firstName: 'asc' },
-      ],
-    });
+      orderBy: [{ role: 'asc' }, { firstName: 'asc' }],
+    })
 
-    return users;
+    return users
   }
 
   async getById(id: string) {
@@ -81,26 +78,26 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
       },
-    });
+    })
 
     if (!user) {
-      throw ApiError.notFound('Korisnik nije pronađen');
+      throw ApiError.notFound('Korisnik nije pronađen')
     }
 
-    return user;
+    return user
   }
 
   async create(data: CreateUserDto) {
     // Provjeri da li korisnik sa ovim emailom već postoji
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
-    });
+    })
 
     if (existingUser) {
-      throw ApiError.badRequest('Korisnik sa ovom email adresom već postoji');
+      throw ApiError.badRequest('Korisnik sa ovom email adresom već postoji')
     }
 
-    const hashedPassword = await hashPassword(data.password);
+    const hashedPassword = await hashPassword(data.password)
 
     const user = await prisma.user.create({
       data: {
@@ -122,30 +119,30 @@ export class UserService {
         isActive: true,
         createdAt: true,
       },
-    });
+    })
 
-    return user;
+    return user
   }
 
   async update(id: string, data: UpdateUserDto) {
     const existingUser = await prisma.user.findUnique({
       where: { id },
-    });
+    })
 
     if (!existingUser) {
-      throw ApiError.notFound('Korisnik nije pronađen');
+      throw ApiError.notFound('Korisnik nije pronađen')
     }
 
-    const updateData: any = {};
+    const updateData: any = {}
 
-    if (data.firstName) updateData.firstName = data.firstName;
-    if (data.lastName) updateData.lastName = data.lastName;
-    if (data.role) updateData.role = data.role;
-    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.firstName) updateData.firstName = data.firstName
+    if (data.lastName) updateData.lastName = data.lastName
+    if (data.role) updateData.role = data.role
+    if (data.phone !== undefined) updateData.phone = data.phone
 
     // Ako je proslijeđena nova lozinka, hashiraj je
     if (data.password) {
-      updateData.password = await hashPassword(data.password);
+      updateData.password = await hashPassword(data.password)
     }
 
     const user = await prisma.user.update({
@@ -162,27 +159,26 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
       },
-    });
+    })
 
-    return user;
+    return user
   }
 
   async delete(id: string) {
     const user = await prisma.user.findUnique({
       where: { id },
-    });
+    })
 
     if (!user) {
-      throw ApiError.notFound('Korisnik nije pronađen');
+      throw ApiError.notFound('Korisnik nije pronađen')
     }
 
-    // Soft delete - samo deaktiviraj korisnika
     await prisma.user.update({
       where: { id },
       data: { isActive: false },
-    });
+    })
 
-    return { message: 'Korisnik uspješno deaktiviran' };
+    return { message: 'Korisnik uspješno deaktiviran' }
   }
 
   async getWorkers() {
@@ -200,9 +196,9 @@ export class UserService {
       orderBy: {
         firstName: 'asc',
       },
-    });
+    })
 
-    return workers;
+    return workers
   }
 
   async getWorkersWithStats() {
@@ -225,7 +221,7 @@ export class UserService {
       orderBy: {
         firstName: 'asc',
       },
-    });
+    })
 
     return workers.map((w) => ({
       id: w.id,
@@ -233,16 +229,16 @@ export class UserService {
       lastName: w.lastName,
       email: w.email,
       assignedOrdersCount: w._count.assignedWorkOrders,
-    }));
+    }))
   }
 
   async updateStatus(id: string, isActive: boolean) {
     const user = await prisma.user.findUnique({
       where: { id },
-    });
+    })
 
     if (!user) {
-      throw ApiError.notFound('Korisnik nije pronađen');
+      throw ApiError.notFound('Korisnik nije pronađen')
     }
 
     const updatedUser = await prisma.user.update({
@@ -256,16 +252,16 @@ export class UserService {
         role: true,
         isActive: true,
       },
-    });
+    })
 
-    return updatedUser;
+    return updatedUser
   }
 
   async getAvailableWorkers(date?: string) {
     // If no date specified, use today
-    const targetDate = date ? new Date(date) : new Date();
+    const targetDate = date ? new Date(date) : new Date()
     // Reset time to start of day for comparison
-    targetDate.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0)
 
     // Get workers who have a schedule entry for the specified date
     const entries = await prisma.scheduleEntry.findMany({
@@ -302,18 +298,16 @@ export class UserService {
           firstName: 'asc',
         },
       },
-    });
+    })
 
-    // Transform to include shift info directly
     return entries.map((entry) => ({
       id: entry.user.id,
       firstName: entry.user.firstName,
       lastName: entry.user.lastName,
       email: entry.user.email,
       shift: entry.shift,
-    }));
+    }))
   }
 }
 
-export default new UserService();
-
+export default new UserService()

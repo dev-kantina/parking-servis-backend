@@ -34,9 +34,47 @@ export interface ChangePasswordDto {
   newPassword: string;
 }
 
+export interface RefreshTokenDto {
+  refreshToken: string;
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message?: string;
   data?: T;
   error?: string;
+}
+
+// Equipment Type DTOs
+export interface CreateEquipmentTypeDto {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateEquipmentTypeDto {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+// Equipment DTOs
+export interface CreateEquipmentDto {
+  name: string;
+  description?: string;
+  typeId: string;
+  quantity?: number; // null = individual item, number = quantity-based
+}
+
+export interface UpdateEquipmentDto {
+  name?: string;
+  description?: string;
+  typeId?: string;
+  quantity?: number;
+  isActive?: boolean;
+}
+
+// Work Order Equipment DTOs
+export interface WorkOrderEquipmentDto {
+  equipmentId: string;
+  quantity: number;
 }

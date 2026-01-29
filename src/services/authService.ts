@@ -1,8 +1,8 @@
 import prisma from '../config/database';
 import { hashPassword, comparePassword } from '../utils/passwordHash';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { ApiError } from '../utils/ApiError';
-import { LoginDto, RegisterDto, ChangePasswordDto } from '../types';
+import { LoginDto, RegisterDto, ChangePasswordDto, RefreshTokenDto } from '../types';
 
 export class AuthService {
   async register(data: RegisterDto) {
@@ -155,6 +155,50 @@ export class AuthService {
     });
 
     return { message: 'Lozinka je uspješno promijenjena' };
+  }
+
+  async refreshToken(data: RefreshTokenDto) {
+    try {
+      // Verify the refresh token
+      const payload = verifyRefreshToken(data.refreshToken);
+
+      // Check if user still exists and is active
+      const user = await prisma.user.findUnique({
+        where: { id: payload.id },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isActive: true,
+        },
+      });
+
+      if (!user) {
+        throw ApiError.unauthorized('User not found');
+      }
+
+      if (!user.isActive) {
+        throw ApiError.forbidden('Account is inactive');
+      }
+
+      // Generate new tokens
+      const newPayload = { id: user.id, email: user.email, role: user.role };
+      const accessToken = generateAccessToken(newPayload);
+      const refreshToken = generateRefreshToken(newPayload);
+
+      return {
+        tokens: {
+          accessToken,
+          refreshToken,
+        },
+      };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      // JWT verification failed (expired or invalid)
+      throw ApiError.unauthorized('Invalid or expired refresh token');
+    }
   }
 }
 

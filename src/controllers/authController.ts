@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import authService from '../services/authService';
 import { ApiResponse } from '../types';
@@ -66,6 +66,22 @@ export class AuthController {
       const response: ApiResponse = {
         success: true,
         message: result.message,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async refreshToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await authService.refreshToken(req.body);
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Token refreshed successfully',
+        data: result,
       };
 
       res.status(200).json(response);

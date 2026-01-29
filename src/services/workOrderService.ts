@@ -3,6 +3,12 @@ import { ApiError } from '../utils/ApiError';
 import notificationService from './notificationService';
 import { WorkOrderStatus, WorkOrderPriority, Role } from '../../generated/prisma';
 import { startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { STATUS_LABELS } from '../constants';
+
+export interface WorkOrderEquipmentInput {
+  equipmentId: string;
+  quantity: number;
+}
 
 export interface CreateWorkOrderDto {
   title: string;
@@ -14,6 +20,7 @@ export interface CreateWorkOrderDto {
   deadline: Date;
   resources?: string;
   assignedToId?: string;
+  equipment?: WorkOrderEquipmentInput[];
 }
 
 export interface UpdateWorkOrderDto {
@@ -26,6 +33,7 @@ export interface UpdateWorkOrderDto {
   deadline?: Date;
   resources?: string;
   assignedToId?: string | null;
+  equipment?: WorkOrderEquipmentInput[];
 }
 
 export interface WorkOrderFilters {
@@ -172,6 +180,15 @@ export class WorkOrderService {
         attachments: {
           orderBy: { uploadedAt: 'desc' },
         },
+        requiredEquipment: {
+          include: {
+            equipment: {
+              include: {
+                type: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -198,6 +215,21 @@ export class WorkOrderService {
       }
     }
 
+    // Validate equipment if provided
+    if (data.equipment && data.equipment.length > 0) {
+      const equipmentIds = data.equipment.map((e) => e.equipmentId);
+      const existingEquipment = await prisma.equipment.findMany({
+        where: {
+          id: { in: equipmentIds },
+          isActive: true,
+        },
+      });
+
+      if (existingEquipment.length !== equipmentIds.length) {
+        throw ApiError.badRequest('Neka od odabrane opreme nije pronađena ili nije aktivna');
+      }
+    }
+
     const workOrder = await prisma.workOrder.create({
       data: {
         title: data.title,
@@ -217,6 +249,14 @@ export class WorkOrderService {
             note: 'Radni nalog kreiran',
           },
         },
+        ...(data.equipment && data.equipment.length > 0 && {
+          requiredEquipment: {
+            create: data.equipment.map((e) => ({
+              equipmentId: e.equipmentId,
+              quantity: e.quantity,
+            })),
+          },
+        }),
       },
       include: {
         createdBy: {
@@ -233,6 +273,15 @@ export class WorkOrderService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        requiredEquipment: {
+          include: {
+            equipment: {
+              include: {
+                type: true,
+              },
+            },
           },
         },
       },
@@ -286,6 +335,28 @@ export class WorkOrderService {
       }
     }
 
+    // Validate equipment if provided
+    if (data.equipment && data.equipment.length > 0) {
+      const equipmentIds = data.equipment.map((e) => e.equipmentId);
+      const existingEquipment = await prisma.equipment.findMany({
+        where: {
+          id: { in: equipmentIds },
+          isActive: true,
+        },
+      });
+
+      if (existingEquipment.length !== equipmentIds.length) {
+        throw ApiError.badRequest('Neka od odabrane opreme nije pronađena ili nije aktivna');
+      }
+    }
+
+    // If equipment is being updated, delete existing and create new
+    if (data.equipment !== undefined) {
+      await prisma.workOrderEquipment.deleteMany({
+        where: { workOrderId: id },
+      });
+    }
+
     const updatedWorkOrder = await prisma.workOrder.update({
       where: { id },
       data: {
@@ -298,6 +369,14 @@ export class WorkOrderService {
         ...(data.deadline && { deadline: new Date(data.deadline) }),
         ...(data.resources !== undefined && { resources: data.resources }),
         ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId }),
+        ...(data.equipment !== undefined && data.equipment.length > 0 && {
+          requiredEquipment: {
+            create: data.equipment.map((e) => ({
+              equipmentId: e.equipmentId,
+              quantity: e.quantity,
+            })),
+          },
+        }),
       },
       include: {
         createdBy: {
@@ -314,6 +393,15 @@ export class WorkOrderService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        requiredEquipment: {
+          include: {
+            equipment: {
+              include: {
+                type: true,
+              },
+            },
           },
         },
       },
@@ -397,9 +485,14 @@ export class WorkOrderService {
         userId: updatedWorkOrder.createdById,
         type: 'STATUS_CHANGE',
         title: 'Promjena statusa',
-        message: `Status naloga "${updatedWorkOrder.title}" je promijenjen u ${newStatus}.`,
+        message: `Status naloga "${updatedWorkOrder.title}" je promijenjen u ${STATUS_LABELS[newStatus]}.`,
         workOrderId: updatedWorkOrder.id,
         sentById: userId,
+        emailData: {
+          oldStatus: workOrder.status,
+          newStatus: newStatus,
+          note: note,
+        },
       });
     }
 

@@ -1,5 +1,3 @@
-# WOMS Backend - Work Order Management System
-
 Backend API for Parking servis Herceg Novi's Work Order Management System.
 
 ## Tech Stack
@@ -69,9 +67,11 @@ pnpm prisma:studio
 ### Authentication
 
 #### POST `/api/auth/register`
+
 Register a new user (Admin only in production)
 
 **Request:**
+
 ```json
 {
   "email": "user@example.com",
@@ -84,9 +84,11 @@ Register a new user (Admin only in production)
 ```
 
 #### POST `/api/auth/login`
+
 Login with email and password
 
 **Request:**
+
 ```json
 {
   "email": "admin@parkingservis.me",
@@ -95,6 +97,7 @@ Login with email and password
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -115,9 +118,11 @@ Login with email and password
 ```
 
 #### GET `/api/auth/profile`
+
 Get current user profile (requires authentication)
 
 **Headers:**
+
 ```
 Authorization: Bearer <access-token>
 ```
@@ -144,12 +149,12 @@ Authorization: Bearer <access-token>
 
 After running `pnpm prisma:seed`:
 
-| Role          | Email                      | Password    |
-|---------------|----------------------------|-------------|
-| Administrator | admin@parkingservis.me     | admin123    |
-| Manager       | manager@parkingservis.me   | manager123  |
-| Worker        | worker1@parkingservis.me   | worker123   |
-| Worker        | worker2@parkingservis.me   | worker123   |
+| Role          | Email                    | Password   |
+| ------------- | ------------------------ | ---------- |
+| Administrator | admin@parkingservis.me   | admin123   |
+| Manager       | manager@parkingservis.me | manager123 |
+| Worker        | worker1@parkingservis.me | worker123  |
+| Worker        | worker2@parkingservis.me | worker123  |
 
 ## Project Structure
 

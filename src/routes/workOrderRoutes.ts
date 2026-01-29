@@ -1,34 +1,43 @@
-import { Router, IRouter } from 'express';
-import { body, param, query } from 'express-validator';
-import workOrderController from '../controllers/workOrderController';
-import { authenticate, authorize } from '../middleware/auth';
-import { validate } from '../middleware/validation';
-import { Role } from '../../generated/prisma';
+import { Router, IRouter } from 'express'
+import { body, param, query } from 'express-validator'
+import workOrderController from '../controllers/workOrderController'
+import { authenticate, authorize } from '../middleware/auth'
+import { validate } from '../middleware/validation'
+import { Role } from '../../generated/prisma'
 
-const router: IRouter = Router();
+const router: IRouter = Router()
 
 // Svi zahtjevi moraju biti autentifikovani
-router.use(authenticate);
+router.use(authenticate)
 
 // GET /api/work-orders/stats - Statistike (samo za menadžere i administratore)
 router.get(
   '/stats',
   authorize(Role.ADMINISTRATOR, Role.MANAGER),
-  workOrderController.getStats.bind(workOrderController)
-);
+  workOrderController.getStats.bind(workOrderController),
+)
 
 // GET /api/work-orders/calendar - Kalendarski prikaz (samo za menadžere i administratore)
 router.get(
   '/calendar',
   authorize(Role.ADMINISTRATOR, Role.MANAGER),
   [
-    query('year').optional().isInt({ min: 2020, max: 2100 }).withMessage('Godina mora biti između 2020 i 2100'),
-    query('month').optional().isInt({ min: 1, max: 12 }).withMessage('Mjesec mora biti između 1 i 12'),
-    query('workerId').optional().isUUID().withMessage('ID radnika mora biti validan UUID'),
+    query('year')
+      .optional()
+      .isInt({ min: 2020, max: 2100 })
+      .withMessage('Godina mora biti između 2020 i 2100'),
+    query('month')
+      .optional()
+      .isInt({ min: 1, max: 12 })
+      .withMessage('Mjesec mora biti između 1 i 12'),
+    query('workerId')
+      .optional()
+      .isUUID()
+      .withMessage('ID radnika mora biti validan UUID'),
     validate,
   ],
-  workOrderController.getCalendarData.bind(workOrderController)
-);
+  workOrderController.getCalendarData.bind(workOrderController),
+)
 
 // GET /api/work-orders/calendar/:date - Detalji dana (samo za menadžere i administratore)
 router.get(
@@ -36,40 +45,43 @@ router.get(
   authorize(Role.ADMINISTRATOR, Role.MANAGER),
   [
     param('date').isISO8601().withMessage('Datum mora biti u ISO8601 formatu'),
-    query('workerId').optional().isUUID().withMessage('ID radnika mora biti validan UUID'),
+    query('workerId')
+      .optional()
+      .isUUID()
+      .withMessage('ID radnika mora biti validan UUID'),
     validate,
   ],
-  workOrderController.getDayDetails.bind(workOrderController)
-);
+  workOrderController.getDayDetails.bind(workOrderController),
+)
 
 // GET /api/work-orders/my - Moji nalozi (za radnike)
-router.get(
-  '/my',
-  workOrderController.getMyOrders.bind(workOrderController)
-);
+router.get('/my', workOrderController.getMyOrders.bind(workOrderController))
 
 // GET /api/work-orders - Lista svih naloga
 router.get(
   '/',
   [
-    query('page').optional().isInt({ min: 1 }).withMessage('Stranica mora biti pozitivan broj'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit mora biti između 1 i 100'),
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Stranica mora biti pozitivan broj'),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 10000 })
+      .withMessage('Limit mora biti između 1 i 10000'),
     query('status').optional().isString(),
     query('priority').optional().isString(),
     validate,
   ],
-  workOrderController.getAll.bind(workOrderController)
-);
+  workOrderController.getAll.bind(workOrderController),
+)
 
 // GET /api/work-orders/:id - Detalji naloga
 router.get(
   '/:id',
-  [
-    param('id').isUUID().withMessage('ID mora biti validan UUID'),
-    validate,
-  ],
-  workOrderController.getById.bind(workOrderController)
-);
+  [param('id').isUUID().withMessage('ID mora biti validan UUID'), validate],
+  workOrderController.getById.bind(workOrderController),
+)
 
 // POST /api/work-orders - Kreiranje naloga (samo menadžeri i administratori)
 router.post(
@@ -86,9 +98,7 @@ router.post(
       .withMessage('Opis je obavezan')
       .isLength({ min: 10 })
       .withMessage('Opis mora imati najmanje 10 karaktera'),
-    body('location')
-      .notEmpty()
-      .withMessage('Lokacija je obavezna'),
+    body('location').notEmpty().withMessage('Lokacija je obavezna'),
     body('latitude')
       .optional()
       .isFloat({ min: -90, max: 90 })
@@ -106,17 +116,15 @@ router.post(
       .withMessage('Rok izvršenja je obavezan')
       .isISO8601()
       .withMessage('Nevažeći format datuma'),
-    body('resources')
-      .optional()
-      .isString(),
+    body('resources').optional().isString(),
     body('assignedToId')
       .optional()
       .isUUID()
       .withMessage('ID dodijeljenog korisnika mora biti validan UUID'),
     validate,
   ],
-  workOrderController.create.bind(workOrderController)
-);
+  workOrderController.create.bind(workOrderController),
+)
 
 // PUT /api/work-orders/:id - Ažuriranje naloga
 router.put(
@@ -154,8 +162,8 @@ router.put(
       .withMessage('ID dodijeljenog korisnika mora biti validan UUID'),
     validate,
   ],
-  workOrderController.update.bind(workOrderController)
-);
+  workOrderController.update.bind(workOrderController),
+)
 
 // PATCH /api/work-orders/:id/status - Promjena statusa
 router.patch(
@@ -166,7 +174,9 @@ router.patch(
       .notEmpty()
       .withMessage('Status je obavezan')
       .isIn(['NEW', 'ACCEPTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED'])
-      .withMessage('Status mora biti NEW, ACCEPTED, IN_PROGRESS, ON_HOLD ili COMPLETED'),
+      .withMessage(
+        'Status mora biti NEW, ACCEPTED, IN_PROGRESS, ON_HOLD ili COMPLETED',
+      ),
     body('note')
       .optional()
       .isString()
@@ -174,18 +184,15 @@ router.patch(
       .withMessage('Napomena ne smije imati više od 500 karaktera'),
     validate,
   ],
-  workOrderController.updateStatus.bind(workOrderController)
-);
+  workOrderController.updateStatus.bind(workOrderController),
+)
 
 // DELETE /api/work-orders/:id - Brisanje naloga (samo administrator)
 router.delete(
   '/:id',
   authorize(Role.ADMINISTRATOR),
-  [
-    param('id').isUUID().withMessage('ID mora biti validan UUID'),
-    validate,
-  ],
-  workOrderController.delete.bind(workOrderController)
-);
+  [param('id').isUUID().withMessage('ID mora biti validan UUID'), validate],
+  workOrderController.delete.bind(workOrderController),
+)
 
-export default router;
+export default router

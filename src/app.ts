@@ -12,17 +12,15 @@ import attachmentRoutes from './routes/attachmentRoutes'
 import analyticsRoutes from './routes/analyticsRoutes'
 import shiftRoutes from './routes/shiftRoutes'
 import scheduleRoutes from './routes/scheduleRoutes'
+import equipmentTypeRoutes from './routes/equipmentTypeRoutes'
+import equipmentRoutes from './routes/equipmentRoutes'
 import { errorHandler } from './middleware/errorHandler'
 import { apiLimiter } from './middleware/rateLimiter'
 
-console.log('Loading dotenv config...')
 dotenv.config()
-console.log('✓ Dotenv loaded')
 
 const app: Application = express()
 
-console.log('Setting up CORS...')
-// CORS configuration
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
@@ -38,27 +36,23 @@ const corsOptions = {
 
 // Apply CORS to all routes (this handles OPTIONS preflight automatically)
 app.use(cors(corsOptions))
-console.log('✓ CORS configured with allowed origins:', allowedOrigins)
+console.log('CORS configured with allowed origins:', allowedOrigins)
 
-// Security headers
-console.log('Setting up security headers...')
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:", process.env.R2_PUBLIC_URL || '*'],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'blob:', process.env.R2_PUBLIC_URL || '*'],
+      },
     },
-  },
-  crossOriginEmbedderPolicy: false, // Allow loading images from R2
-}))
-console.log('✓ Helmet security headers configured')
+    crossOriginEmbedderPolicy: false, // Allow loading images from R2
+  }),
+)
 
-// Apply general API rate limiting
-console.log('Setting up rate limiting...')
 app.use('/api', apiLimiter)
-console.log('✓ Rate limiting configured')
 
 // Log all requests
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -68,21 +62,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next()
 })
 
-console.log('Setting up body parsers...')
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-console.log('✓ Body parsers configured')
 
 app.get('/health', (_req: Request, res: Response) => {
-  console.log('>>> HEALTH CHECK REQUEST')
   res.status(200).json({
     success: true,
-    message: 'WOMS API is running',
+    message: 'Parking servis Herceg Novi API is running',
     timestamp: new Date().toISOString(),
   })
 })
 
-console.log('Setting up routes...')
 app.use('/api/auth', authRoutes)
 app.use('/api/work-orders/:workOrderId/comments', commentRoutes)
 app.use('/api/work-orders', workOrderRoutes)
@@ -93,10 +83,9 @@ app.use('/api/analytics', analyticsRoutes)
 app.use('/api/attachments', attachmentRoutes)
 app.use('/api/shifts', shiftRoutes)
 app.use('/api/schedules', scheduleRoutes)
-console.log('✓ All routes configured')
+app.use('/api/equipment-types', equipmentTypeRoutes)
+app.use('/api/equipment', equipmentRoutes)
 
-console.log('Setting up error handler...')
 app.use(errorHandler)
-console.log('✓ Error handler configured')
 
 export default app

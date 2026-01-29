@@ -90,11 +90,12 @@ model WorkOrder {
   completedAt DateTime?
 
   // Relations
-  statusHistory WorkOrderStatusHistory[]
-  attachments   Attachment[]
-  comments      Comment[]
-  timeLogs      TimeLog[]
-  notifications Notification[]
+  statusHistory     WorkOrderStatusHistory[]
+  attachments       Attachment[]
+  comments          Comment[]
+  timeLogs          TimeLog[]
+  notifications     Notification[]
+  requiredEquipment WorkOrderEquipment[]
 
   @@index([status])
   @@index([priority])
@@ -252,4 +253,51 @@ model ScheduleEntry {
   @@index([shiftId])
   @@index([date])
   @@map("schedule_entries")
+}
+
+// Equipment Management
+model EquipmentType {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  equipment   Equipment[]
+
+  @@map("equipment_types")
+}
+
+model Equipment {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  typeId      String
+  type        EquipmentType @relation(fields: [typeId], references: [id])
+  quantity    Int?          // null = individual item (e.g., vehicle), number = quantity-based (e.g., tools)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workOrders  WorkOrderEquipment[]
+
+  @@index([typeId])
+  @@index([isActive])
+  @@map("equipment")
+}
+
+model WorkOrderEquipment {
+  id          String    @id @default(uuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  quantity    Int       @default(1) // how many needed for this work order
+  createdAt   DateTime  @default(now())
+
+  @@unique([workOrderId, equipmentId])
+  @@index([workOrderId])
+  @@index([equipmentId])
+  @@map("work_order_equipment")
 }

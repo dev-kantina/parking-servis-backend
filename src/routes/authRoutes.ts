@@ -33,6 +33,16 @@ router.post(
   authController.login.bind(authController)
 );
 
+router.post(
+  '/refresh',
+  authLimiter,
+  [
+    body('refreshToken').notEmpty().withMessage('Refresh token is required'),
+    validate,
+  ],
+  authController.refreshToken.bind(authController)
+);
+
 router.get('/profile', authenticate, authController.getProfile.bind(authController));
 
 router.patch(
