@@ -112,8 +112,7 @@ router.post(
       .isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
       .withMessage('Prioritet mora biti LOW, MEDIUM, HIGH ili URGENT'),
     body('deadline')
-      .notEmpty()
-      .withMessage('Rok izvršenja je obavezan')
+      .optional()
       .isISO8601()
       .withMessage('Nevažeći format datuma'),
     body('resources').optional().isString(),

@@ -17,7 +17,7 @@ export interface CreateWorkOrderDto {
   latitude?: number;
   longitude?: number;
   priority?: WorkOrderPriority;
-  deadline: Date;
+  deadline?: Date;
   resources?: string;
   assignedToId?: string;
   equipment?: WorkOrderEquipmentInput[];
@@ -238,7 +238,7 @@ export class WorkOrderService {
         latitude: data.latitude,
         longitude: data.longitude,
         priority: data.priority || WorkOrderPriority.MEDIUM,
-        deadline: new Date(data.deadline),
+        deadline: data.deadline ? new Date(data.deadline) : undefined,
         resources: data.resources,
         createdById,
         assignedToId: data.assignedToId,
@@ -658,11 +658,11 @@ export class WorkOrderService {
 
     // Process each work order
     workOrders.forEach((wo) => {
-      const deadlineDate = wo.deadline.toISOString().split('T')[0];
+      const deadlineDate = wo.deadline?.toISOString().split('T')[0];
       const completedDate = wo.completedAt?.toISOString().split('T')[0];
 
       // Count deadline
-      if (dailySummary[deadlineDate]) {
+      if (deadlineDate && dailySummary[deadlineDate]) {
         dailySummary[deadlineDate].deadlines++;
       }
 
@@ -688,7 +688,7 @@ export class WorkOrderService {
           }
 
           // Check if overdue on this day
-          if (!wo.completedAt && iterDate > wo.deadline) {
+          if (!wo.completedAt && wo.deadline && iterDate > wo.deadline) {
             dailySummary[dateKey].overdue++;
           }
         }
@@ -698,8 +698,8 @@ export class WorkOrderService {
 
     // Format work orders for calendar
     const calendarOrders = workOrders.map((wo) => {
-      const isOverdue = !wo.completedAt && new Date() > wo.deadline;
-      const isCompletedLate = wo.completedAt && wo.completedAt > wo.deadline;
+      const isOverdue = !wo.completedAt && !!wo.deadline && new Date() > wo.deadline;
+      const isCompletedLate = !!wo.completedAt && !!wo.deadline && wo.completedAt > wo.deadline;
 
       return {
         id: wo.id,
@@ -708,8 +708,8 @@ export class WorkOrderService {
         priority: wo.priority,
         status: wo.status,
         startDate: wo.createdAt.toISOString(),
-        endDate: wo.completedAt?.toISOString() || wo.deadline.toISOString(),
-        deadline: wo.deadline.toISOString(),
+        endDate: wo.completedAt?.toISOString() || wo.deadline?.toISOString() || null,
+        deadline: wo.deadline?.toISOString() || null,
         completedAt: wo.completedAt?.toISOString() || null,
         isOverdue,
         isCompletedLate,
@@ -727,12 +727,12 @@ export class WorkOrderService {
       total: workOrders.length,
       completed: workOrders.filter((wo) => wo.status === WorkOrderStatus.COMPLETED).length,
       inProgress: workOrders.filter((wo) => wo.status === WorkOrderStatus.IN_PROGRESS).length,
-      overdue: workOrders.filter((wo) => !wo.completedAt && new Date() > wo.deadline).length,
+      overdue: workOrders.filter((wo) => !wo.completedAt && wo.deadline && new Date() > wo.deadline).length,
       completedOnTime: workOrders.filter(
-        (wo) => wo.completedAt && wo.completedAt <= wo.deadline
+        (wo) => wo.completedAt && wo.deadline && wo.completedAt <= wo.deadline
       ).length,
       completedLate: workOrders.filter(
-        (wo) => wo.completedAt && wo.completedAt > wo.deadline
+        (wo) => wo.completedAt && wo.deadline && wo.completedAt > wo.deadline
       ).length,
     };
 
@@ -794,7 +794,7 @@ export class WorkOrderService {
 
     // Categorize orders
     const deadlinesToday = workOrders.filter(
-      (wo) => wo.deadline >= dayStart && wo.deadline <= dayEnd
+      (wo) => wo.deadline && wo.deadline >= dayStart && wo.deadline <= dayEnd
     );
     const completedToday = workOrders.filter(
       (wo) => wo.completedAt && wo.completedAt >= dayStart && wo.completedAt <= dayEnd
@@ -815,7 +815,7 @@ export class WorkOrderService {
         priority: wo.priority,
         status: wo.status,
         deadline: wo.deadline,
-        isOverdue: !wo.completedAt && new Date() > wo.deadline,
+        isOverdue: !wo.completedAt && wo.deadline && new Date() > wo.deadline,
         worker: wo.assignedTo
           ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
           : null,
@@ -826,7 +826,7 @@ export class WorkOrderService {
         location: wo.location,
         priority: wo.priority,
         completedAt: wo.completedAt,
-        wasLate: wo.completedAt && wo.completedAt > wo.deadline,
+        wasLate: wo.completedAt && wo.deadline && wo.completedAt > wo.deadline,
         worker: wo.assignedTo
           ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
           : null,

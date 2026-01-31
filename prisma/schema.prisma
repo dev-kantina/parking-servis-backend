@@ -76,7 +76,7 @@ model WorkOrder {
   longitude   Float?
   priority    WorkOrderPriority   @default(MEDIUM)
   status      WorkOrderStatus     @default(NEW)
-  deadline    DateTime
+  deadline    DateTime?
   resources   String?             // JSON string of required resources
 
   createdById String

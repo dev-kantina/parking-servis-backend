@@ -18,9 +18,6 @@ export class EquipmentService {
 
     if (filters.isActive !== undefined) {
       where.isActive = filters.isActive;
-    } else {
-      // By default, only show active equipment
-      where.isActive = true;
     }
 
     if (filters.search) {
