@@ -7,6 +7,9 @@ CREATE TYPE "WorkOrderPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 -- CreateEnum
 CREATE TYPE "WorkOrderStatus" AS ENUM ('NEW', 'ACCEPTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED');
 
+-- CreateEnum
+CREATE TYPE "DayOfWeek" AS ENUM ('MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -112,6 +115,81 @@ CREATE TABLE "notifications" (
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "shifts" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "startTime" TEXT NOT NULL,
+    "endTime" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "shifts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "employee_schedules" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "dayOfWeek" "DayOfWeek" NOT NULL,
+    "shiftId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "employee_schedules_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "schedule_entries" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "date" DATE NOT NULL,
+    "shiftId" TEXT NOT NULL,
+    "note" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "schedule_entries_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "equipment_types" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "equipment_types_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "equipment" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "typeId" TEXT NOT NULL,
+    "quantity" INTEGER,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "equipment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "work_order_equipment" (
+    "id" TEXT NOT NULL,
+    "workOrderId" TEXT NOT NULL,
+    "equipmentId" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "work_order_equipment_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
@@ -143,6 +221,9 @@ CREATE INDEX "comments_workOrderId_idx" ON "comments"("workOrderId");
 CREATE INDEX "comments_userId_idx" ON "comments"("userId");
 
 -- CreateIndex
+CREATE INDEX "comments_createdAt_idx" ON "comments"("createdAt");
+
+-- CreateIndex
 CREATE INDEX "time_logs_workOrderId_idx" ON "time_logs"("workOrderId");
 
 -- CreateIndex
@@ -156,6 +237,57 @@ CREATE INDEX "notifications_workOrderId_idx" ON "notifications"("workOrderId");
 
 -- CreateIndex
 CREATE INDEX "notifications_isRead_idx" ON "notifications"("isRead");
+
+-- CreateIndex
+CREATE INDEX "notifications_userId_isRead_idx" ON "notifications"("userId", "isRead");
+
+-- CreateIndex
+CREATE INDEX "notifications_createdAt_idx" ON "notifications"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "shifts_name_key" ON "shifts"("name");
+
+-- CreateIndex
+CREATE INDEX "employee_schedules_userId_idx" ON "employee_schedules"("userId");
+
+-- CreateIndex
+CREATE INDEX "employee_schedules_shiftId_idx" ON "employee_schedules"("shiftId");
+
+-- CreateIndex
+CREATE INDEX "employee_schedules_dayOfWeek_idx" ON "employee_schedules"("dayOfWeek");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "employee_schedules_userId_dayOfWeek_key" ON "employee_schedules"("userId", "dayOfWeek");
+
+-- CreateIndex
+CREATE INDEX "schedule_entries_userId_idx" ON "schedule_entries"("userId");
+
+-- CreateIndex
+CREATE INDEX "schedule_entries_shiftId_idx" ON "schedule_entries"("shiftId");
+
+-- CreateIndex
+CREATE INDEX "schedule_entries_date_idx" ON "schedule_entries"("date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "schedule_entries_userId_date_key" ON "schedule_entries"("userId", "date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "equipment_types_name_key" ON "equipment_types"("name");
+
+-- CreateIndex
+CREATE INDEX "equipment_typeId_idx" ON "equipment"("typeId");
+
+-- CreateIndex
+CREATE INDEX "equipment_isActive_idx" ON "equipment"("isActive");
+
+-- CreateIndex
+CREATE INDEX "work_order_equipment_workOrderId_idx" ON "work_order_equipment"("workOrderId");
+
+-- CreateIndex
+CREATE INDEX "work_order_equipment_equipmentId_idx" ON "work_order_equipment"("equipmentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "work_order_equipment_workOrderId_equipmentId_key" ON "work_order_equipment"("workOrderId", "equipmentId");
 
 -- AddForeignKey
 ALTER TABLE "work_orders" ADD CONSTRAINT "work_orders_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -189,3 +321,24 @@ ALTER TABLE "notifications" ADD CONSTRAINT "notifications_workOrderId_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_sentById_fkey" FOREIGN KEY ("sentById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employee_schedules" ADD CONSTRAINT "employee_schedules_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employee_schedules" ADD CONSTRAINT "employee_schedules_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "shifts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "schedule_entries" ADD CONSTRAINT "schedule_entries_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "schedule_entries" ADD CONSTRAINT "schedule_entries_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "shifts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "equipment" ADD CONSTRAINT "equipment_typeId_fkey" FOREIGN KEY ("typeId") REFERENCES "equipment_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "work_order_equipment" ADD CONSTRAINT "work_order_equipment_workOrderId_fkey" FOREIGN KEY ("workOrderId") REFERENCES "work_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "work_order_equipment" ADD CONSTRAINT "work_order_equipment_equipmentId_fkey" FOREIGN KEY ("equipmentId") REFERENCES "equipment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
