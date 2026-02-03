@@ -14,6 +14,8 @@ export class WorkOrderController {
         priority,
         assignedToId,
         search,
+        scheduledDateBefore,
+        scheduledDateAfter,
         deadlineBefore,
         deadlineAfter,
       } = req.query;
@@ -34,6 +36,14 @@ export class WorkOrderController {
 
       if (search) {
         filters.search = search as string;
+      }
+
+      if (scheduledDateBefore) {
+        filters.scheduledDateBefore = new Date(scheduledDateBefore as string);
+      }
+
+      if (scheduledDateAfter) {
+        filters.scheduledDateAfter = new Date(scheduledDateAfter as string);
       }
 
       if (deadlineBefore) {

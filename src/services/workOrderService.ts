@@ -17,6 +17,7 @@ export interface CreateWorkOrderDto {
   latitude?: number;
   longitude?: number;
   priority?: WorkOrderPriority;
+  scheduledDate?: Date;
   deadline?: Date;
   resources?: string;
   assignedToId?: string;
@@ -30,6 +31,7 @@ export interface UpdateWorkOrderDto {
   latitude?: number;
   longitude?: number;
   priority?: WorkOrderPriority;
+  scheduledDate?: Date;
   deadline?: Date;
   resources?: string;
   assignedToId?: string | null;
@@ -42,6 +44,8 @@ export interface WorkOrderFilters {
   assignedToId?: string;
   createdById?: string;
   search?: string;
+  scheduledDateBefore?: Date;
+  scheduledDateAfter?: Date;
   deadlineBefore?: Date;
   deadlineAfter?: Date;
 }
@@ -51,13 +55,35 @@ export interface PaginationOptions {
   limit: number;
 }
 
-// Definisanje validnih prelaza statusa
-const STATUS_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
-  [WorkOrderStatus.NEW]: [WorkOrderStatus.ACCEPTED],
-  [WorkOrderStatus.ACCEPTED]: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.NEW],
+// Definisanje validnih prelaza statusa za radnike
+const WORKER_STATUS_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
+  [WorkOrderStatus.NEW]: [WorkOrderStatus.ACCEPTED, WorkOrderStatus.DECLINED],
+  [WorkOrderStatus.ACCEPTED]: [WorkOrderStatus.IN_PROGRESS],
   [WorkOrderStatus.IN_PROGRESS]: [WorkOrderStatus.ON_HOLD, WorkOrderStatus.COMPLETED],
   [WorkOrderStatus.ON_HOLD]: [WorkOrderStatus.IN_PROGRESS],
-  [WorkOrderStatus.COMPLETED]: [], // Završen nalog se ne može promijeniti
+  [WorkOrderStatus.COMPLETED]: [],
+  [WorkOrderStatus.CANCELLED]: [],
+  [WorkOrderStatus.DECLINED]: [],
+};
+
+// Admin/Manager može mijenjati status u bilo koji drugi status
+const ALL_STATUSES = [
+  WorkOrderStatus.NEW,
+  WorkOrderStatus.ACCEPTED,
+  WorkOrderStatus.IN_PROGRESS,
+  WorkOrderStatus.ON_HOLD,
+  WorkOrderStatus.COMPLETED,
+  WorkOrderStatus.CANCELLED,
+  WorkOrderStatus.DECLINED,
+];
+
+// Funkcija za dobijanje dozvoljenih prelaza na osnovu uloge
+const getStatusTransitions = (status: WorkOrderStatus, role: Role): WorkOrderStatus[] => {
+  if (role === Role.ADMINISTRATOR || role === Role.MANAGER) {
+    // Admin/Manager može mijenjati u bilo koji status osim trenutnog
+    return ALL_STATUSES.filter(s => s !== status);
+  }
+  return WORKER_STATUS_TRANSITIONS[status];
 };
 
 export class WorkOrderService {
@@ -89,6 +115,14 @@ export class WorkOrderService {
         { description: { contains: filters.search, mode: 'insensitive' } },
         { location: { contains: filters.search, mode: 'insensitive' } },
       ];
+    }
+
+    if (filters.scheduledDateBefore) {
+      where.scheduledDate = { ...where.scheduledDate, lte: filters.scheduledDateBefore };
+    }
+
+    if (filters.scheduledDateAfter) {
+      where.scheduledDate = { ...where.scheduledDate, gte: filters.scheduledDateAfter };
     }
 
     if (filters.deadlineBefore) {
@@ -238,6 +272,7 @@ export class WorkOrderService {
         latitude: data.latitude,
         longitude: data.longitude,
         priority: data.priority || WorkOrderPriority.MEDIUM,
+        scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : undefined,
         deadline: data.deadline ? new Date(data.deadline) : undefined,
         resources: data.resources,
         createdById,
@@ -315,9 +350,9 @@ export class WorkOrderService {
       throw ApiError.forbidden('Nemate dozvolu za uređivanje ovog naloga');
     }
 
-    // Završeni nalozi se ne mogu uređivati
-    if (currentWorkOrder.status === WorkOrderStatus.COMPLETED) {
-      throw ApiError.badRequest('Završeni nalozi se ne mogu uređivati');
+    // Završeni, otkazani i odbijeni nalozi se ne mogu uređivati
+    if ([WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED, WorkOrderStatus.DECLINED].includes(currentWorkOrder.status)) {
+      throw ApiError.badRequest('Završeni, otkazani ili odbijeni nalozi se ne mogu uređivati');
     }
 
     // Provjera novog dodijeljenog korisnika
@@ -366,6 +401,7 @@ export class WorkOrderService {
         ...(data.latitude !== undefined && { latitude: data.latitude }),
         ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.priority && { priority: data.priority }),
+        ...(data.scheduledDate !== undefined && { scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null }),
         ...(data.deadline && { deadline: new Date(data.deadline) }),
         ...(data.resources !== undefined && { resources: data.resources }),
         ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId }),
@@ -435,8 +471,8 @@ export class WorkOrderService {
       throw ApiError.forbidden('Nemate dozvolu za promjenu statusa ovog naloga');
     }
 
-    // Provjera validnog prelaza statusa
-    const allowedTransitions = STATUS_TRANSITIONS[workOrder.status];
+    // Provjera validnog prelaza statusa na osnovu uloge korisnika
+    const allowedTransitions = getStatusTransitions(workOrder.status, userRole);
     if (!allowedTransitions.includes(newStatus)) {
       throw ApiError.badRequest(
         `Nije moguć prelaz iz statusa "${workOrder.status}" u status "${newStatus}"`
@@ -539,7 +575,7 @@ export class WorkOrderService {
             lte: new Date(Date.now() + 24 * 60 * 60 * 1000),
           },
           status: {
-            notIn: [WorkOrderStatus.COMPLETED],
+            notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED, WorkOrderStatus.DECLINED],
           },
         },
       }),
@@ -577,6 +613,8 @@ export class WorkOrderService {
         IN_PROGRESS: byStatus.IN_PROGRESS || 0,
         ON_HOLD: byStatus.ON_HOLD || 0,
         COMPLETED: byStatus.COMPLETED || 0,
+        CANCELLED: byStatus.CANCELLED || 0,
+        DECLINED: byStatus.DECLINED || 0,
       },
       byPriority: {
         LOW: byPriority.LOW || 0,

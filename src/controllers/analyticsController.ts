@@ -1,23 +1,36 @@
 import { Request, Response } from 'express';
 import { analyticsService } from '../services/analyticsService';
 import { exportService } from '../services/exportService';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
+
+function getDateRange(query: Request['query']) {
+  const { period, startDate, endDate } = query;
+  const now = new Date();
+
+  // Custom date range takes precedence
+  if (startDate && endDate) {
+    return {
+      startDate: startOfDay(parseISO(startDate as string)),
+      endDate: endOfDay(parseISO(endDate as string)),
+    };
+  }
+
+  // Predefined periods
+  if (period === 'week') {
+    return { startDate: startOfWeek(now, { weekStartsOn: 1 }), endDate: endOfWeek(now, { weekStartsOn: 1 }) };
+  } else if (period === 'month') {
+    return { startDate: startOfMonth(now), endDate: endOfMonth(now) };
+  } else if (period === 'last30') {
+    return { startDate: subDays(now, 30), endDate: now };
+  }
+
+  return undefined;
+}
 
 export class AnalyticsController {
   async getDashboardStats(req: Request, res: Response) {
     try {
-      const { period } = req.query;
-      let range;
-
-      const now = new Date();
-      if (period === 'week') {
-        range = { startDate: startOfWeek(now, { weekStartsOn: 1 }), endDate: endOfWeek(now, { weekStartsOn: 1 }) };
-      } else if (period === 'month') {
-        range = { startDate: startOfMonth(now), endDate: endOfMonth(now) };
-      } else if (period === 'last30') {
-          range = { startDate: subDays(now, 30), endDate: now };
-      }
-
+      const range = getDateRange(req.query);
       const stats = await analyticsService.getDashboardStats(range);
       res.json(stats);
     } catch (error) {
@@ -28,18 +41,7 @@ export class AnalyticsController {
 
   async getWorkerPerformance(req: Request, res: Response) {
     try {
-      const { period } = req.query;
-      let range;
-      
-      const now = new Date();
-      if (period === 'week') {
-        range = { startDate: startOfWeek(now, { weekStartsOn: 1 }), endDate: endOfWeek(now, { weekStartsOn: 1 }) };
-      } else if (period === 'month') {
-        range = { startDate: startOfMonth(now), endDate: endOfMonth(now) };
-      } else if (period === 'last30') {
-          range = { startDate: subDays(now, 30), endDate: now };
-      }
-
+      const range = getDateRange(req.query);
       const performance = await analyticsService.getWorkerPerformance(range);
       res.json(performance);
     } catch (error) {

@@ -317,8 +317,11 @@ export class ScheduleService {
   // ========================================
 
   async getEntriesByDateRange(startDate: string, endDate: string, userId?: string) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Parse date strings as UTC midnight (database stores dates as UTC midnight)
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const start = new Date(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0, 0));
 
     const where: any = {
       date: {
@@ -380,7 +383,9 @@ export class ScheduleService {
       throw ApiError.badRequest('Nije moguće dodijeliti neaktivnu smjenu');
     }
 
-    const date = new Date(data.date);
+    // Parse date string as UTC midnight (database stores dates as UTC midnight)
+    const [year, month, day] = data.date.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
     // Upsert - create or update the entry
     const entry = await prisma.scheduleEntry.upsert({
@@ -417,7 +422,9 @@ export class ScheduleService {
   }
 
   async deleteDateEntry(userId: string, date: string) {
-    const dateObj = new Date(date);
+    // Parse date string as UTC midnight (database stores dates as UTC midnight)
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
     const entry = await prisma.scheduleEntry.findUnique({
       where: {
@@ -440,8 +447,11 @@ export class ScheduleService {
   }
 
   async generateFromTemplate(data: GenerateScheduleDto) {
-    const start = new Date(data.startDate);
-    const end = new Date(data.endDate);
+    // Parse date strings as UTC midnight (database stores dates as UTC midnight)
+    const [startYear, startMonth, startDay] = data.startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = data.endDate.split('-').map(Number);
+    const start = new Date(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0, 0));
 
     // Get workers to generate schedules for
     const whereUsers: any = {
@@ -477,10 +487,10 @@ export class ScheduleService {
 
     const entriesToCreate: { userId: string; date: Date; shiftId: string }[] = [];
 
-    // Iterate through each day in the range
+    // Iterate through each day in the range (using UTC methods)
     const currentDate = new Date(start);
     while (currentDate <= end) {
-      const dayOfWeek = daysMap[currentDate.getDay()];
+      const dayOfWeek = daysMap[currentDate.getUTCDay()];
 
       for (const worker of workers) {
         // Find template for this day
@@ -495,7 +505,7 @@ export class ScheduleService {
         }
       }
 
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     // Use createMany with skipDuplicates to avoid overwriting existing entries
@@ -511,8 +521,11 @@ export class ScheduleService {
   }
 
   async getCalendarView(startDate: string, endDate: string) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Parse date strings as UTC midnight (database stores dates as UTC midnight)
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const start = new Date(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0, 0));
 
     // Get all active workers
     const workers = await prisma.user.findMany({
@@ -542,12 +555,12 @@ export class ScheduleService {
       },
     });
 
-    // Build date list
+    // Build date list (using UTC methods since we're working with UTC dates)
     const dates: string[] = [];
     const currentDate = new Date(start);
     while (currentDate <= end) {
       dates.push(currentDate.toISOString().split('T')[0]);
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     // Build calendar matrix
@@ -588,7 +601,9 @@ export class ScheduleService {
   }
 
   async getWorkersAvailableOnDate(date: string) {
-    const dateObj = new Date(date);
+    // Parse date string as UTC midnight (database stores dates as UTC midnight)
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
     // Get workers who have a schedule entry for this date
     const entries = await prisma.scheduleEntry.findMany({

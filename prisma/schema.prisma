@@ -30,6 +30,8 @@ enum WorkOrderStatus {
   IN_PROGRESS
   ON_HOLD
   COMPLETED
+  CANCELLED
+  DECLINED
 }
 
 enum DayOfWeek {
@@ -76,7 +78,8 @@ model WorkOrder {
   longitude   Float?
   priority    WorkOrderPriority   @default(MEDIUM)
   status      WorkOrderStatus     @default(NEW)
-  deadline    DateTime?
+  scheduledDate DateTime?         // When the work is planned to be performed
+  deadline    DateTime?           // When the work must be completed by
   resources   String?             // JSON string of required resources
 
   createdById String
@@ -101,6 +104,7 @@ model WorkOrder {
   @@index([priority])
   @@index([assignedToId])
   @@index([createdById])
+  @@index([scheduledDate])
   @@index([deadline])
   @@map("work_orders")
 }

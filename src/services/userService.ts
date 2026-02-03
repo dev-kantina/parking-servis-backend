@@ -258,55 +258,151 @@ export class UserService {
   }
 
   async getAvailableWorkers(date?: string) {
-    // If no date specified, use today
-    const targetDate = date ? new Date(date) : new Date()
-    // Reset time to start of day for comparison
-    targetDate.setHours(0, 0, 0, 0)
+    // Get today (UTC midnight)
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
+    
+    // Tomorrow for range start (we want next work date after today)
+    const tomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0));
+    
+    // Look at the next 7 days (not "rest of week" which fails on Sundays)
+    const next7Days = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 7, 0, 0, 0, 0));
 
-    // Get workers who have a schedule entry for the specified date
-    const entries = await prisma.scheduleEntry.findMany({
+    // Parse target date if provided
+    let targetDate: Date | null = null;
+    if (date) {
+      const [year, month, day] = date.split('-').map(Number);
+      targetDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    }
+
+    // Get all active workers
+    const workers = await prisma.user.findMany({
       where: {
-        date: targetDate,
-        user: {
-          role: Role.WORKER,
-          isActive: true,
-        },
-        shift: {
-          isActive: true,
-        },
+        role: Role.WORKER,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+      orderBy: { firstName: 'asc' },
+    });
+
+    // Get schedule entries for today
+    const todayEntries = await prisma.scheduleEntry.findMany({
+      where: {
+        date: today,
+        userId: { in: workers.map(w => w.id) },
+        shift: { isActive: true },
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
         shift: {
           select: {
             id: true,
             name: true,
-            startTime: true,
-            endTime: true,
           },
         },
       },
-      orderBy: {
-        user: {
-          firstName: 'asc',
+    });
+
+    // Get schedule entries for the next 7 days (excluding today)
+    const restOfWeekEntries = await prisma.scheduleEntry.findMany({
+      where: {
+        date: { gte: tomorrow, lte: next7Days },
+        userId: { in: workers.map(w => w.id) },
+        shift: { isActive: true },
+      },
+      include: {
+        shift: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
-    })
+      orderBy: { date: 'asc' },
+    });
 
-    return entries.map((entry) => ({
-      id: entry.user.id,
-      firstName: entry.user.firstName,
-      lastName: entry.user.lastName,
-      email: entry.user.email,
-      shift: entry.shift,
-    }))
+    // Get target date entries if needed
+    const targetDateEntries = targetDate && targetDate.getTime() !== today.getTime() 
+      ? await prisma.scheduleEntry.findMany({
+          where: {
+            date: targetDate,
+            userId: { in: workers.map(w => w.id) },
+            shift: { isActive: true },
+          },
+          include: {
+            shift: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        })
+      : [];
+
+    // Build a map of worker schedules
+    const workerSchedules = new Map<string, {
+      today?: { shiftId: string; shiftName: string };
+      nextWorkDateThisWeek?: string; // ISO date string
+      targetDate?: { shiftId: string; shiftName: string };
+    }>();
+
+    // Process today entries
+    for (const entry of todayEntries) {
+      const existing = workerSchedules.get(entry.userId) || {};
+      existing.today = { shiftId: entry.shift.id, shiftName: entry.shift.name };
+      workerSchedules.set(entry.userId, existing);
+    }
+
+    // Process rest of week entries - find first work date for each worker
+    for (const entry of restOfWeekEntries) {
+      const existing = workerSchedules.get(entry.userId) || {};
+      // Only set if not already set (we want the first/earliest date)
+      if (!existing.nextWorkDateThisWeek) {
+        existing.nextWorkDateThisWeek = entry.date.toISOString().split('T')[0];
+      }
+      workerSchedules.set(entry.userId, existing);
+    }
+
+    // Process target date entries
+    for (const entry of targetDateEntries) {
+      const existing = workerSchedules.get(entry.userId) || {};
+      existing.targetDate = { shiftId: entry.shift.id, shiftName: entry.shift.name };
+      workerSchedules.set(entry.userId, existing);
+    }
+
+    // Map workers with their schedule info
+    const workersWithSchedule = workers.map((worker) => {
+      const schedule = workerSchedules.get(worker.id);
+      return {
+        id: worker.id,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
+        email: worker.email,
+        worksToday: !!schedule?.today,
+        nextWorkDateThisWeek: schedule?.nextWorkDateThisWeek || null,
+        worksOnTargetDate: !!schedule?.targetDate,
+        todayShift: schedule?.today,
+        targetDateShift: schedule?.targetDate,
+      };
+    });
+
+    // Sort: workers on target date first, then today, then has next work date this week, then others
+    workersWithSchedule.sort((a, b) => {
+      const getScore = (w: typeof a) => {
+        if (targetDate && w.worksOnTargetDate) return 4;
+        if (w.worksToday) return 3;
+        if (w.nextWorkDateThisWeek) return 2;
+        return 1;
+      };
+      return getScore(b) - getScore(a);
+    });
+
+    return workersWithSchedule;
   }
 }
 

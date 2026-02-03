@@ -26,7 +26,7 @@ export const exportService = {
         wo.createdBy ? `${wo.createdBy.firstName} ${wo.createdBy.lastName}` : 'N/A',
         wo.assignedTo ? `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` : 'N/A',
         wo.createdAt.toISOString(),
-        wo.deadline.toISOString()
+        wo.deadline?.toISOString() ?? ''
       ].join(','));
     });
 
@@ -41,7 +41,7 @@ export const exportService = {
     const stats = await analyticsService.getWorkerPerformance();
 
     const csvRows = [
-      ['ID', 'Ime i Prezime', 'Ukupno Dodijeljeno', 'Završeno', 'Prosječno Vrijeme (h)', 'Na Vrijeme (%)', 'Sati Rada'].join(',')
+      ['ID', 'Ime i Prezime', 'Ukupno dodijeljeno', 'Završeno', 'Prosječno vrijeme (h)', 'Na vrijeme (%)', 'Sati rada'].join(',')
     ];
 
     stats.forEach(s => {

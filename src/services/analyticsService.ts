@@ -27,7 +27,7 @@ export const analyticsService = {
       prisma.workOrder.count({ 
         where: { 
           ...where,
-          status: { in: [WorkOrderStatus.NEW, WorkOrderStatus.ACCEPTED, WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] } 
+          status: { in: [WorkOrderStatus.NEW, WorkOrderStatus.ACCEPTED, WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] },
         } 
       }),
       prisma.workOrder.count({ 
@@ -213,17 +213,16 @@ export const analyticsService = {
       orderBy: { updatedAt: 'desc' },
     });
 
-    // Get all active orders count by status
+    // Get all active orders count by status (excluding completed, cancelled, declined)
     const ordersByStatus = await prisma.workOrder.groupBy({
       by: ['status'],
       _count: { status: true },
       where: {
         status: {
-          in: [
-            WorkOrderStatus.NEW,
-            WorkOrderStatus.ACCEPTED,
-            WorkOrderStatus.IN_PROGRESS,
-            WorkOrderStatus.ON_HOLD,
+          notIn: [
+            WorkOrderStatus.COMPLETED,
+            WorkOrderStatus.CANCELLED,
+            WorkOrderStatus.DECLINED,
           ],
         },
       },
@@ -234,11 +233,10 @@ export const analyticsService = {
       where: {
         priority: { in: [WorkOrderPriority.URGENT, WorkOrderPriority.HIGH] },
         status: {
-          in: [
-            WorkOrderStatus.NEW,
-            WorkOrderStatus.ACCEPTED,
-            WorkOrderStatus.IN_PROGRESS,
-            WorkOrderStatus.ON_HOLD,
+          notIn: [
+            WorkOrderStatus.COMPLETED,
+            WorkOrderStatus.CANCELLED,
+            WorkOrderStatus.DECLINED,
           ],
         },
       },
@@ -266,11 +264,10 @@ export const analyticsService = {
       where: {
         deadline: { lt: now },
         status: {
-          in: [
-            WorkOrderStatus.NEW,
-            WorkOrderStatus.ACCEPTED,
-            WorkOrderStatus.IN_PROGRESS,
-            WorkOrderStatus.ON_HOLD,
+          notIn: [
+            WorkOrderStatus.COMPLETED,
+            WorkOrderStatus.CANCELLED,
+            WorkOrderStatus.DECLINED,
           ],
         },
       },
