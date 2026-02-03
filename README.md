@@ -1,4 +1,4 @@
-Backend API for Parking servis Herceg Novi's Work Order Management System.
+Backend API for Parking servis Herceg Novi's Work Order Management System
 
 ## Tech Stack
 
