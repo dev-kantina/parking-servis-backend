@@ -1,73 +1,108 @@
-import prisma from '../config/database';
-import { WorkOrderStatus, WorkOrderPriority, Role } from '../../generated/prisma';
-import { subMonths, format, endOfMonth, subHours, startOfDay, endOfDay } from 'date-fns';
+import {
+  endOfDay,
+  endOfMonth,
+  format,
+  startOfDay,
+  subHours,
+  subMonths,
+} from 'date-fns'
+import {
+  Role,
+  WorkOrderPriority,
+  WorkOrderStatus,
+} from '../../generated/prisma'
+import prisma from '../config/database'
 
 interface DateRange {
-  startDate: Date;
-  endDate: Date;
+  startDate: Date
+  endDate: Date
 }
 
 export const analyticsService = {
   async getDashboardStats(range?: DateRange) {
-    const where = range ? {
-      createdAt: {
-        gte: range.startDate,
-        lte: range.endDate,
-      }
-    } : {};
+    const where = range
+      ? {
+          createdAt: {
+            gte: range.startDate,
+            lte: range.endDate,
+          },
+        }
+      : {}
 
     const [
       totalOrders,
       activeOrders,
       completedOrders,
       ordersByStatus,
-      ordersByPriority
+      ordersByPriority,
     ] = await Promise.all([
       prisma.workOrder.count({ where }),
-      prisma.workOrder.count({ 
-        where: { 
+      prisma.workOrder.count({
+        where: {
           ...where,
-          status: { in: [WorkOrderStatus.NEW, WorkOrderStatus.ACCEPTED, WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] },
-        } 
+          status: {
+            in: [
+              WorkOrderStatus.NEW,
+              WorkOrderStatus.ACCEPTED,
+              WorkOrderStatus.IN_PROGRESS,
+              WorkOrderStatus.ON_HOLD,
+            ],
+          },
+        },
       }),
-      prisma.workOrder.count({ 
-        where: { 
+      prisma.workOrder.count({
+        where: {
           ...where,
-          status: WorkOrderStatus.COMPLETED 
-        } 
+          status: WorkOrderStatus.COMPLETED,
+        },
       }),
       prisma.workOrder.groupBy({
         by: ['status'],
         _count: { status: true },
-        where
+        where,
       }),
       prisma.workOrder.groupBy({
         by: ['priority'],
         _count: { priority: true },
-        where
-      })
-    ]);
+        where,
+      }),
+    ])
 
     // Calculate completion rate
-    const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+    const completionRate =
+      totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0
 
     return {
       totalOrders,
       activeOrders,
       completedOrders,
       completionRate,
-      byStatus: ordersByStatus.reduce((acc: Record<string, number>, curr) => ({ ...acc, [curr.status]: curr._count.status }), {}),
-      byPriority: ordersByPriority.reduce((acc: Record<string, number>, curr) => ({ ...acc, [curr.priority]: curr._count.priority }), {})
-    };
+      byStatus: ordersByStatus.reduce(
+        (acc: Record<string, number>, curr) => ({
+          ...acc,
+          [curr.status]: curr._count.status,
+        }),
+        {}
+      ),
+      byPriority: ordersByPriority.reduce(
+        (acc: Record<string, number>, curr) => ({
+          ...acc,
+          [curr.priority]: curr._count.priority,
+        }),
+        {}
+      ),
+    }
   },
 
   async getWorkerPerformance(range?: DateRange) {
-    const where = range ? {
-      createdAt: {
-        gte: range.startDate,
-        lte: range.endDate,
-      }
-    } : {};
+    const where = range
+      ? {
+          createdAt: {
+            gte: range.startDate,
+            lte: range.endDate,
+          },
+        }
+      : {}
 
     const workers = await prisma.user.findMany({
       where: { role: Role.WORKER, isActive: true },
@@ -76,118 +111,116 @@ export const analyticsService = {
         firstName: true,
         lastName: true,
         assignedWorkOrders: {
-            where,
-            select: {
-                status: true,
-                completedAt: true,
-                createdAt: true,
-                deadline: true
-            }
+          where,
+          select: {
+            status: true,
+            completedAt: true,
+            createdAt: true,
+            deadline: true,
+          },
         },
-        timeLogs: {
-            where: range ? {
-                startTime: {
-                    gte: range.startDate,
-                    lte: range.endDate
-                }
-            } : {},
-            select: {
-                duration: true
-            }
+      },
+    })
+
+    return workers
+      .map((worker: any) => {
+        const completedOrders = worker.assignedWorkOrders.filter(
+          (wo: any) => wo.status === WorkOrderStatus.COMPLETED
+        )
+        const totalAssigned = worker.assignedWorkOrders.length
+
+        // Calculate average completion time (in hours)
+        const completionTimes = completedOrders
+          .filter((wo: any) => wo.completedAt)
+          .map(
+            (wo: any) =>
+              (wo.completedAt!.getTime() - wo.createdAt.getTime()) /
+              (1000 * 60 * 60)
+          )
+
+        const avgCompletionTime =
+          completionTimes.length > 0
+            ? completionTimes.reduce((a: number, b: number) => a + b, 0) /
+              completionTimes.length
+            : 0
+
+        // Calculate on-time completion rate
+        const onTimeOrders = completedOrders.filter(
+          (wo: any) => wo.completedAt && wo.completedAt <= wo.deadline
+        )
+        const onTimeRate =
+          completedOrders.length > 0
+            ? (onTimeOrders.length / completedOrders.length) * 100
+            : 0
+
+        return {
+          id: worker.id,
+          name: `${worker.firstName} ${worker.lastName}`,
+          totalAssigned,
+          completedCount: completedOrders.length,
+          avgCompletionTime: Math.round(avgCompletionTime * 10) / 10, // Round to 1 decimal
+          onTimeRate: Math.round(onTimeRate),
         }
-      }
-    });
-
-    return workers.map((worker: any) => {
-      const completedOrders = worker.assignedWorkOrders.filter((wo: any) => wo.status === WorkOrderStatus.COMPLETED);
-      const totalAssigned = worker.assignedWorkOrders.length;
-      
-      // Calculate average completion time (in hours)
-      const completionTimes = completedOrders
-        .filter((wo: any) => wo.completedAt)
-        .map((wo: any) => (wo.completedAt!.getTime() - wo.createdAt.getTime()) / (1000 * 60 * 60));
-      
-      const avgCompletionTime = completionTimes.length > 0
-        ? completionTimes.reduce((a: number, b: number) => a + b, 0) / completionTimes.length
-        : 0;
-
-      // Calculate on-time completion rate
-      const onTimeOrders = completedOrders.filter((wo: any) => wo.completedAt && wo.completedAt <= wo.deadline);
-      const onTimeRate = completedOrders.length > 0 
-        ? (onTimeOrders.length / completedOrders.length) * 100 
-        : 0;
-
-      // Total logged hours
-      const totalMinutesLogged = worker.timeLogs.reduce((acc: number, log: any) => acc + (log.duration || 0), 0);
-
-      return {
-        id: worker.id,
-        name: `${worker.firstName} ${worker.lastName}`,
-        totalAssigned,
-        completedCount: completedOrders.length,
-        avgCompletionTime: Math.round(avgCompletionTime * 10) / 10, // Round to 1 decimal
-        onTimeRate: Math.round(onTimeRate),
-        totalHoursLogged: Math.round(totalMinutesLogged / 60 * 10) / 10
-      };
-    }).sort((a: any, b: any) => b.completedCount - a.completedCount);
+      })
+      .sort((a: any, b: any) => b.completedCount - a.completedCount)
   },
 
   async getTrends(months: number = 6) {
-    const endDate = new Date();
-    const startDate = subMonths(endDate, months);
+    const endDate = new Date()
+    const startDate = subMonths(endDate, months)
 
     const orders = await prisma.workOrder.findMany({
       where: {
         createdAt: {
-          gte: startDate
-        }
+          gte: startDate,
+        },
       },
       select: {
         createdAt: true,
-        status: true
-      }
-    });
+        status: true,
+      },
+    })
 
     // Group by month
-    const monthlyStats = new Map<string, { total: number; completed: number }>();
+    const monthlyStats = new Map<string, { total: number; completed: number }>()
 
     orders.forEach((order: any) => {
-      const monthKey = format(order.createdAt, 'yyyy-MM');
-      const stats = monthlyStats.get(monthKey) || { total: 0, completed: 0 };
-      
-      stats.total++;
+      const monthKey = format(order.createdAt, 'yyyy-MM')
+      const stats = monthlyStats.get(monthKey) || { total: 0, completed: 0 }
+
+      stats.total++
       if (order.status === WorkOrderStatus.COMPLETED) {
-        stats.completed++;
+        stats.completed++
       }
-      
-      monthlyStats.set(monthKey, stats);
-    });
+
+      monthlyStats.set(monthKey, stats)
+    })
 
     // Fill in missing months and format for chart
-    const result = [];
-    let current = startDate;
+    const result = []
+    let current = startDate
     while (current <= endDate) {
-      const key = format(current, 'yyyy-MM');
-      const stats = monthlyStats.get(key) || { total: 0, completed: 0 };
-      
+      const key = format(current, 'yyyy-MM')
+      const stats = monthlyStats.get(key) || { total: 0, completed: 0 }
+
       result.push({
         month: format(current, 'MMM yyyy'), // e.g., "Dec 2024"
         total: stats.total,
-        completed: stats.completed
-      });
-      
-      current = endOfMonth(current);
-      current.setDate(current.getDate() + 1); // Move to start of next month
+        completed: stats.completed,
+      })
+
+      current = endOfMonth(current)
+      current.setDate(current.getDate() + 1) // Move to start of next month
     }
 
-    return result;
+    return result
   },
 
   async getLiveStatus() {
-    const now = new Date();
-    const oneHourAgo = subHours(now, 1);
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
+    const now = new Date()
+    const oneHourAgo = subHours(now, 1)
+    const todayStart = startOfDay(now)
+    const todayEnd = endOfDay(now)
 
     // Get work orders in progress with assigned worker details
     const inProgressOrders = await prisma.workOrder.findMany({
@@ -211,22 +244,13 @@ export const analyticsService = {
         },
       },
       orderBy: { updatedAt: 'desc' },
-    });
+    })
 
-    // Get all active orders count by status (excluding completed, cancelled, declined)
+    // Get all orders count by status (including all statuses)
     const ordersByStatus = await prisma.workOrder.groupBy({
       by: ['status'],
       _count: { status: true },
-      where: {
-        status: {
-          notIn: [
-            WorkOrderStatus.COMPLETED,
-            WorkOrderStatus.CANCELLED,
-            WorkOrderStatus.DECLINED,
-          ],
-        },
-      },
-    });
+    })
 
     // Get urgent/high priority active orders
     const urgentOrders = await prisma.workOrder.findMany({
@@ -257,7 +281,7 @@ export const analyticsService = {
       },
       orderBy: [{ priority: 'desc' }, { deadline: 'asc' }],
       take: 10,
-    });
+    })
 
     // Get overdue orders
     const overdueOrders = await prisma.workOrder.findMany({
@@ -287,7 +311,7 @@ export const analyticsService = {
         },
       },
       orderBy: { deadline: 'asc' },
-    });
+    })
 
     // Get workers scheduled for today
     const workersOnDuty = await prisma.scheduleEntry.findMany({
@@ -325,7 +349,7 @@ export const analyticsService = {
           },
         },
       },
-    });
+    })
 
     // Get recent activity (status changes in the last hour)
     const recentActivity = await prisma.workOrderStatusHistory.findMany({
@@ -352,7 +376,7 @@ export const analyticsService = {
       },
       orderBy: { createdAt: 'desc' },
       take: 20,
-    });
+    })
 
     // Get today's stats
     const todayStats = await prisma.workOrder.groupBy({
@@ -364,7 +388,7 @@ export const analyticsService = {
           lte: todayEnd,
         },
       },
-    });
+    })
 
     const todayCompleted = await prisma.workOrder.count({
       where: {
@@ -373,7 +397,7 @@ export const analyticsService = {
           lte: todayEnd,
         },
       },
-    });
+    })
 
     // Format response
     const statusCounts = ordersByStatus.reduce(
@@ -386,23 +410,31 @@ export const analyticsService = {
         ACCEPTED: 0,
         IN_PROGRESS: 0,
         ON_HOLD: 0,
+        COMPLETED: 0,
+        CANCELLED: 0,
+        DECLINED: 0,
       }
-    );
+    )
 
-    const todayCreated = todayStats.reduce((sum, s) => sum + s._count.status, 0);
+    const todayCreated = todayStats.reduce((sum, s) => sum + s._count.status, 0)
 
     return {
       summary: {
-        inProgress: statusCounts.IN_PROGRESS,
         new: statusCounts.NEW,
         accepted: statusCounts.ACCEPTED,
+        inProgress: statusCounts.IN_PROGRESS,
         onHold: statusCounts.ON_HOLD,
+        completed: statusCounts.COMPLETED,
+        cancelled: statusCounts.CANCELLED,
+        declined: statusCounts.DECLINED,
         totalActive:
           statusCounts.NEW +
           statusCounts.ACCEPTED +
           statusCounts.IN_PROGRESS +
           statusCounts.ON_HOLD,
-        urgent: urgentOrders.filter((o) => o.priority === WorkOrderPriority.URGENT).length,
+        urgent: urgentOrders.filter(
+          (o) => o.priority === WorkOrderPriority.URGENT
+        ).length,
         overdue: overdueOrders.length,
         todayCreated,
         todayCompleted,
@@ -450,13 +482,32 @@ export const analyticsService = {
             }
           : null,
       })),
-      workersOnDuty: workersOnDuty.map((entry) => ({
-        id: entry.user.id,
-        name: `${entry.user.firstName} ${entry.user.lastName}`,
-        phone: entry.user.phone,
-        shift: entry.shift,
-        currentTasks: entry.user.assignedWorkOrders,
-      })),
+      workersOnDuty: Array.from(
+        workersOnDuty
+          .reduce((map, entry) => {
+            const existing = map.get(entry.user.id)
+            if (existing) {
+              // Worker already exists, add this shift if not duplicate
+              const shiftKey = `${entry.shift.name}-${entry.shift.startTime}-${entry.shift.endTime}`
+              if (!existing.shiftKeys.has(shiftKey)) {
+                existing.shiftKeys.add(shiftKey)
+                existing.shifts.push(entry.shift)
+              }
+              return map
+            }
+            const shiftKey = `${entry.shift.name}-${entry.shift.startTime}-${entry.shift.endTime}`
+            map.set(entry.user.id, {
+              id: entry.user.id,
+              name: `${entry.user.firstName} ${entry.user.lastName}`,
+              phone: entry.user.phone,
+              shifts: [entry.shift],
+              shiftKeys: new Set([shiftKey]),
+              currentTasks: entry.user.assignedWorkOrders,
+            })
+            return map
+          }, new Map())
+          .values()
+      ).map(({ shiftKeys, ...worker }) => worker),
       recentActivity: recentActivity.map((activity) => ({
         id: activity.id,
         timestamp: activity.createdAt,
@@ -471,6 +522,6 @@ export const analyticsService = {
           : null,
       })),
       timestamp: now.toISOString(),
-    };
+    }
   },
-};
+}

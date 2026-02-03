@@ -1,21 +1,20 @@
-import express, { Application, Request, Response, NextFunction } from 'express'
 import cors from 'cors'
-import helmet from 'helmet'
 import dotenv from 'dotenv'
-import authRoutes from './routes/authRoutes'
-import workOrderRoutes from './routes/workOrderRoutes'
-import userRoutes from './routes/userRoutes'
-import commentRoutes from './routes/commentRoutes'
-import timeLogRoutes from './routes/timeLogRoutes'
-import notificationRoutes from './routes/notificationRoutes'
-import attachmentRoutes from './routes/attachmentRoutes'
-import analyticsRoutes from './routes/analyticsRoutes'
-import shiftRoutes from './routes/shiftRoutes'
-import scheduleRoutes from './routes/scheduleRoutes'
-import equipmentTypeRoutes from './routes/equipmentTypeRoutes'
-import equipmentRoutes from './routes/equipmentRoutes'
+import express, { Application, NextFunction, Request, Response } from 'express'
+import helmet from 'helmet'
 import { errorHandler } from './middleware/errorHandler'
 import { apiLimiter } from './middleware/rateLimiter'
+import analyticsRoutes from './routes/analyticsRoutes'
+import attachmentRoutes from './routes/attachmentRoutes'
+import authRoutes from './routes/authRoutes'
+import commentRoutes from './routes/commentRoutes'
+import equipmentRoutes from './routes/equipmentRoutes'
+import equipmentTypeRoutes from './routes/equipmentTypeRoutes'
+import notificationRoutes from './routes/notificationRoutes'
+import scheduleRoutes from './routes/scheduleRoutes'
+import shiftRoutes from './routes/shiftRoutes'
+import userRoutes from './routes/userRoutes'
+import workOrderRoutes from './routes/workOrderRoutes'
 
 dotenv.config()
 
@@ -49,7 +48,7 @@ app.use(
       },
     },
     crossOriginEmbedderPolicy: false, // Allow loading images from R2
-  }),
+  })
 )
 
 app.use('/api', apiLimiter)
@@ -77,7 +76,6 @@ app.use('/api/auth', authRoutes)
 app.use('/api/work-orders/:workOrderId/comments', commentRoutes)
 app.use('/api/work-orders', workOrderRoutes)
 app.use('/api/users', userRoutes)
-app.use('/api/time-logs', timeLogRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/attachments', attachmentRoutes)

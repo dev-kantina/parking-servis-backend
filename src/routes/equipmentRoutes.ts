@@ -26,10 +26,10 @@ router.get(
   equipmentController.getById.bind(equipmentController)
 );
 
-// POST /api/equipment - Create new equipment (Admin only)
+// POST /api/equipment - Create new equipment (Admin/Manager)
 router.post(
   '/',
-  authorize(Role.ADMINISTRATOR),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER),
   [
     body('name')
       .notEmpty()
@@ -50,10 +50,10 @@ router.post(
   equipmentController.create.bind(equipmentController)
 );
 
-// PUT /api/equipment/:id - Update equipment (Admin only)
+// PUT /api/equipment/:id - Update equipment (Admin/Manager)
 router.put(
   '/:id',
-  authorize(Role.ADMINISTRATOR),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     body('name')
@@ -75,18 +75,18 @@ router.put(
   equipmentController.update.bind(equipmentController)
 );
 
-// DELETE /api/equipment/:id - Delete (deactivate) equipment (Admin only)
+// DELETE /api/equipment/:id - Delete (deactivate) equipment (Admin/Manager)
 router.delete(
   '/:id',
-  authorize(Role.ADMINISTRATOR),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER),
   [param('id').isUUID().withMessage('ID mora biti validan UUID'), validate],
   equipmentController.delete.bind(equipmentController)
 );
 
-// PATCH /api/equipment/:id/status - Activate/deactivate equipment (Admin only)
+// PATCH /api/equipment/:id/status - Activate/deactivate equipment (Admin/Manager)
 router.patch(
   '/:id/status',
-  authorize(Role.ADMINISTRATOR),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     body('isActive').isBoolean().withMessage('isActive mora biti boolean'),

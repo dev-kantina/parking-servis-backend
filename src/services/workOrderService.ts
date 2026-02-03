@@ -351,7 +351,7 @@ export class WorkOrderService {
     }
 
     // Završeni, otkazani i odbijeni nalozi se ne mogu uređivati
-    if ([WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED, WorkOrderStatus.DECLINED].includes(currentWorkOrder.status)) {
+    if (([WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED, WorkOrderStatus.DECLINED] as WorkOrderStatus[]).includes(currentWorkOrder.status)) {
       throw ApiError.badRequest('Završeni, otkazani ili odbijeni nalozi se ne mogu uređivati');
     }
 

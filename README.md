@@ -142,7 +142,6 @@ Authorization: Bearer <access-token>
 - **WorkOrderStatusHistory** - Track status changes
 - **Attachment** - Photos/documents for work orders
 - **Comment** - Internal communication
-- **TimeLog** - Productivity tracking
 - **Notification** - System notifications
 
 ## Default Users (Seeded)

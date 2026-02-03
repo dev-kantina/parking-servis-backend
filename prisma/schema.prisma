@@ -59,7 +59,6 @@ model User {
   // Relations
   createdWorkOrders  WorkOrder[]     @relation("CreatedBy")
   assignedWorkOrders WorkOrder[]     @relation("AssignedTo")
-  timeLogs           TimeLog[]
   comments           Comment[]
   notifications      Notification[]
   sentNotifications  Notification[]  @relation("SentBy")
@@ -96,7 +95,6 @@ model WorkOrder {
   statusHistory     WorkOrderStatusHistory[]
   attachments       Attachment[]
   comments          Comment[]
-  timeLogs          TimeLog[]
   notifications     Notification[]
   requiredEquipment WorkOrderEquipment[]
 
@@ -158,27 +156,6 @@ model Comment {
   @@index([userId])
   @@index([createdAt])  // For sorting comments by date
   @@map("comments")
-}
-
-model TimeLog {
-  id               String     @id @default(uuid())
-  workOrderId      String
-  workOrder        WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  userId           String
-  user             User       @relation(fields: [userId], references: [id])
-
-  startTime        DateTime
-  endTime          DateTime?
-  duration         Int?       // in minutes, calculated
-  note             String?    // for manual entries or justifications
-  isManualEntry    Boolean    @default(false)
-
-  createdAt        DateTime   @default(now())
-
-  @@index([workOrderId])
-  @@index([userId])
-  @@map("time_logs")
 }
 
 model Notification {

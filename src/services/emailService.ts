@@ -22,7 +22,7 @@ export interface WorkOrderEmailData {
   workOrderId: string;
   location: string;
   priority: string;
-  deadline: Date;
+  deadline?: Date | null;
   status?: string;
   oldStatus?: string;
   newStatus?: string;
@@ -116,7 +116,7 @@ class EmailService {
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #64748b;">Rok:</td>
-          <td style="padding: 8px 0; font-weight: 500;">${new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+          <td style="padding: 8px 0; font-weight: 500;">${data.deadline ? new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Nije definisan'}</td>
         </tr>
       </table>
     </div>
@@ -142,7 +142,7 @@ Dodijeljen vam je novi radni nalog:
 Naslov: ${data.workOrderTitle}
 Lokacija: ${data.location}
 Prioritet: ${priorityLabels[data.priority] || data.priority}
-Rok: ${new Date(data.deadline).toLocaleDateString('sr-Latn-ME')}
+Rok: ${data.deadline ? new Date(data.deadline).toLocaleDateString('sr-Latn-ME') : 'Nije definisan'}
 
 Molimo prijavite se u aplikaciju za više detalja i prihvatanje naloga.
 
