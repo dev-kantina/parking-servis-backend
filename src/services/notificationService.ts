@@ -78,7 +78,7 @@ export class NotificationService {
       recipientName: `${user.firstName} ${user.lastName}`,
       workOrderTitle: workOrder.title,
       workOrderId: workOrder.id,
-      location: workOrder.location,
+      location: workOrder.location ?? undefined,
       priority: workOrder.priority,
       deadline: workOrder.deadline,
       status: workOrder.status,

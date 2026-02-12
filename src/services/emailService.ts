@@ -20,7 +20,7 @@ export interface WorkOrderEmailData {
   recipientName: string;
   workOrderTitle: string;
   workOrderId: string;
-  location: string;
+  location?: string;
   priority: string;
   deadline?: Date | null;
   status?: string;
@@ -102,10 +102,12 @@ class EmailService {
       <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">${data.workOrderTitle}</h2>
 
       <table style="width: 100%; border-collapse: collapse;">
+        ${data.location ? `
         <tr>
           <td style="padding: 8px 0; color: #64748b; width: 120px;">Lokacija:</td>
           <td style="padding: 8px 0; font-weight: 500;">${data.location}</td>
         </tr>
+        ` : ''}
         <tr>
           <td style="padding: 8px 0; color: #64748b;">Prioritet:</td>
           <td style="padding: 8px 0;">
@@ -114,10 +116,12 @@ class EmailService {
             </span>
           </td>
         </tr>
+        ${data.deadline ? `
         <tr>
           <td style="padding: 8px 0; color: #64748b;">Rok:</td>
-          <td style="padding: 8px 0; font-weight: 500;">${data.deadline ? new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Nije definisan'}</td>
+          <td style="padding: 8px 0; font-weight: 500;">${new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
         </tr>
+        ` : ''}
       </table>
     </div>
 
@@ -140,9 +144,9 @@ Poštovani/a ${data.recipientName},
 Dodijeljen vam je novi radni nalog:
 
 Naslov: ${data.workOrderTitle}
-Lokacija: ${data.location}
+${data.location ? `Lokacija: ${data.location}` : ''}
 Prioritet: ${priorityLabels[data.priority] || data.priority}
-Rok: ${data.deadline ? new Date(data.deadline).toLocaleDateString('sr-Latn-ME') : 'Nije definisan'}
+${data.deadline ? `Rok: ${new Date(data.deadline).toLocaleDateString('sr-Latn-ME')}` : ''}
 
 Molimo prijavite se u aplikaciju za više detalja i prihvatanje naloga.
 
@@ -208,12 +212,14 @@ ${APP_NAME}
       </div>
       ` : ''}
 
+      ${data.location ? `
       <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
         <tr>
           <td style="padding: 8px 0; color: #64748b; width: 120px;">Lokacija:</td>
           <td style="padding: 8px 0; font-weight: 500;">${data.location}</td>
         </tr>
       </table>
+      ` : ''}
     </div>
 
     <p>Prijavite se u aplikaciju za više detalja.</p>
@@ -238,7 +244,7 @@ Naslov: ${data.workOrderTitle}
 Stari status: ${oldStatusLabel}
 Novi status: ${newStatusLabel}
 ${data.note ? `Napomena: ${data.note}` : ''}
-Lokacija: ${data.location}
+${data.location ? `Lokacija: ${data.location}` : ''}
 
 Prijavite se u aplikaciju za više detalja.
 

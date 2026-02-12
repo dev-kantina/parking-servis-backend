@@ -44,6 +44,11 @@ enum DayOfWeek {
   SUNDAY
 }
 
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -64,6 +69,8 @@ model User {
   sentNotifications  Notification[]  @relation("SentBy")
   weeklySchedules    EmployeeSchedule[]  // Weekly template
   scheduleEntries    ScheduleEntry[]     // Actual date-specific entries
+  createdStandards   Standard[]      @relation("StandardCreatedBy")
+  assignedStandards  Standard[]      @relation("StandardDefaultAssignedTo")
 
   @@map("users")
 }
@@ -72,7 +79,7 @@ model WorkOrder {
   id          String              @id @default(uuid())
   title       String
   description String
-  location    String
+  location    String?
   latitude    Float?
   longitude   Float?
   priority    WorkOrderPriority   @default(MEDIUM)
@@ -86,6 +93,9 @@ model WorkOrder {
 
   assignedToId String?
   assignedTo   User?               @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  standardId  String?
+  standard    Standard?           @relation(fields: [standardId], references: [id], onDelete: SetNull)
 
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
@@ -104,6 +114,7 @@ model WorkOrder {
   @@index([createdById])
   @@index([scheduledDate])
   @@index([deadline])
+  @@index([standardId])
   @@map("work_orders")
 }
 
@@ -281,4 +292,29 @@ model WorkOrderEquipment {
   @@index([workOrderId])
   @@index([equipmentId])
   @@map("work_order_equipment")
+}
+
+model Standard {
+  id                  String            @id @default(uuid())
+  title               String
+  description         String
+  location            String?
+  latitude            Float?
+  longitude           Float?
+  priority            WorkOrderPriority @default(MEDIUM)
+  recurrenceType      RecurrenceType
+  daysOfWeek          DayOfWeek[]       // WEEKLY: specific days; DAILY: empty = all days
+  startTime           String            // "HH:MM" format
+  endTime             String            // "HH:MM" format
+  isActive            Boolean           @default(true)
+  createdById         String
+  createdBy           User              @relation("StandardCreatedBy", fields: [createdById], references: [id])
+  defaultAssignedToId String?
+  defaultAssignedTo   User?             @relation("StandardDefaultAssignedTo", fields: [defaultAssignedToId], references: [id])
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  workOrders          WorkOrder[]
+
+  @@index([isActive])
+  @@map("standards")
 }

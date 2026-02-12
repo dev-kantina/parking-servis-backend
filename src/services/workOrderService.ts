@@ -13,7 +13,7 @@ export interface WorkOrderEquipmentInput {
 export interface CreateWorkOrderDto {
   title: string;
   description: string;
-  location: string;
+  location?: string;
   latitude?: number;
   longitude?: number;
   priority?: WorkOrderPriority;

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { PrismaClient, DayOfWeek } from '../generated/prisma'
+import { PrismaClient } from '../generated/prisma'
 
 const prisma = new PrismaClient()
 
@@ -14,10 +14,10 @@ async function main() {
   const adminPassword = await hashPassword('admin123')
 
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@parkingservis.me' },
+    where: { email: 'admin@parkingservis.hn' },
     update: {},
     create: {
-      email: 'admin@parkingservis.me',
+      email: 'admin@parkingservis.hn',
       password: adminPassword,
       firstName: 'Admin',
       lastName: 'User',

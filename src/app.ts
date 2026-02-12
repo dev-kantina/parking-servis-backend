@@ -13,6 +13,7 @@ import equipmentTypeRoutes from './routes/equipmentTypeRoutes'
 import notificationRoutes from './routes/notificationRoutes'
 import scheduleRoutes from './routes/scheduleRoutes'
 import shiftRoutes from './routes/shiftRoutes'
+import standardRoutes from './routes/standardRoutes'
 import userRoutes from './routes/userRoutes'
 import workOrderRoutes from './routes/workOrderRoutes'
 
@@ -83,6 +84,7 @@ app.use('/api/shifts', shiftRoutes)
 app.use('/api/schedules', scheduleRoutes)
 app.use('/api/equipment-types', equipmentTypeRoutes)
 app.use('/api/equipment', equipmentRoutes)
+app.use('/api/standards', standardRoutes)
 
 app.use(errorHandler)
 

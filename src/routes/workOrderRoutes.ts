@@ -98,7 +98,7 @@ router.post(
       .withMessage('Opis je obavezan')
       .isLength({ min: 10 })
       .withMessage('Opis mora imati najmanje 10 karaktera'),
-    body('location').notEmpty().withMessage('Lokacija je obavezna'),
+    body('location').optional().isString(),
     body('latitude')
       .optional()
       .isFloat({ min: -90, max: 90 })
