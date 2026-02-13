@@ -71,6 +71,7 @@ model User {
   scheduleEntries    ScheduleEntry[]     // Actual date-specific entries
   createdStandards   Standard[]      @relation("StandardCreatedBy")
   assignedStandards  Standard[]      @relation("StandardDefaultAssignedTo")
+  pushSubscriptions  PushSubscription[]
 
   @@map("users")
 }
@@ -292,6 +293,20 @@ model WorkOrderEquipment {
   @@index([workOrderId])
   @@index([equipmentId])
   @@map("work_order_equipment")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model Standard {

@@ -1,6 +1,7 @@
 import prisma from '../config/database'
 import { ApiError } from '../utils/ApiError'
 import emailService from './emailService'
+import pushSubscriptionService from './pushSubscriptionService'
 
 export interface CreateNotificationDto {
   userId: string
@@ -41,6 +42,14 @@ export class NotificationService {
     console.log('[NOTIFICATION] Triggering email send...')
     this.sendEmailNotification(data).catch((error) => {
       console.error('[NOTIFICATION] Failed to send email notification:', error)
+    })
+
+    pushSubscriptionService.sendPushToUser(data.userId, {
+      title: data.title,
+      message: data.message,
+      url: data.workOrderId ? `/work-orders/${data.workOrderId}` : '/pregled',
+    }).catch((err) => {
+      console.error('[NOTIFICATION] Push failed:', err)
     })
 
     return notification

@@ -11,6 +11,7 @@ import commentRoutes from './routes/commentRoutes'
 import equipmentRoutes from './routes/equipmentRoutes'
 import equipmentTypeRoutes from './routes/equipmentTypeRoutes'
 import notificationRoutes from './routes/notificationRoutes'
+import pushSubscriptionRoutes from './routes/pushSubscriptionRoutes'
 import scheduleRoutes from './routes/scheduleRoutes'
 import shiftRoutes from './routes/shiftRoutes'
 import standardRoutes from './routes/standardRoutes'
@@ -78,6 +79,7 @@ app.use('/api/work-orders/:workOrderId/comments', commentRoutes)
 app.use('/api/work-orders', workOrderRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/notifications', notificationRoutes)
+app.use('/api/push', pushSubscriptionRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/attachments', attachmentRoutes)
 app.use('/api/shifts', shiftRoutes)
