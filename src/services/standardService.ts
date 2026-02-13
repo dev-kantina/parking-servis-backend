@@ -330,6 +330,11 @@ export class StandardService {
           endH, endM
         ));
 
+        // Handle overnight/24h shifts: if deadline <= scheduledDate, shift spans midnight
+        if (deadline.getTime() <= scheduledDate.getTime()) {
+          deadline.setUTCDate(deadline.getUTCDate() + 1);
+        }
+
         workOrdersToCreate.push({
           title: `[Standard] ${standard.title}`,
           description: standard.description,

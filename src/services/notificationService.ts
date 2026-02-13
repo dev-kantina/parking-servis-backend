@@ -37,8 +37,10 @@ export class NotificationService {
       },
     })
 
+    console.log('[NOTIFICATION] Created notification type:', data.type, 'for user:', data.userId)
+    console.log('[NOTIFICATION] Triggering email send...')
     this.sendEmailNotification(data).catch((error) => {
-      console.error('Failed to send email notification:', error)
+      console.error('[NOTIFICATION] Failed to send email notification:', error)
     })
 
     return notification
@@ -48,9 +50,11 @@ export class NotificationService {
     data: CreateNotificationDto,
   ): Promise<void> {
     if (!data.workOrderId) {
+      console.log('[NOTIFICATION] No workOrderId, skipping email')
       return
     }
 
+    console.log('[NOTIFICATION] Fetching user and work order data for email...')
     const [user, workOrder] = await Promise.all([
       prisma.user.findUnique({
         where: { id: data.userId },
@@ -70,8 +74,10 @@ export class NotificationService {
     ])
 
     if (!user || !workOrder) {
+      console.log('[NOTIFICATION] User or work order not found, skipping email. User:', !!user, 'WorkOrder:', !!workOrder)
       return
     }
+    console.log('[NOTIFICATION] Sending email to:', user.email, 'for work order:', workOrder.title)
 
     const emailData = {
       recipientEmail: user.email,

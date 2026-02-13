@@ -1,12 +1,13 @@
 import { Resend } from 'resend';
 import { STATUS_LABELS } from '../constants';
 
-// Initialize Resend client - will be null if API key not configured
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// TODO: Remove hardcoded values after testing - revert to process.env
+const RESEND_API_KEY = 're_9imVbxb2_Np9HQ6GAmNsNNtmixE8NPVS1';
+const FROM_EMAIL = 'onboarding@resend.dev';
+const APP_NAME = 'Parking servis Herceg Novi';
 
-// Email sender address (must be verified in Resend dashboard)
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@example.com';
-const APP_NAME = process.env.APP_NAME || 'Parking Servis';
+const resend = new Resend(RESEND_API_KEY);
+console.log('[EMAIL] Service initialized with hardcoded config for testing');
 
 export interface SendEmailOptions {
   to: string;
@@ -30,37 +31,32 @@ export interface WorkOrderEmailData {
 }
 
 class EmailService {
-  private isEnabled(): boolean {
-    if (!resend) {
-      console.warn('Email service is disabled: RESEND_API_KEY not configured');
-      return false;
-    }
-    return true;
-  }
-
   async sendEmail(options: SendEmailOptions): Promise<boolean> {
-    if (!this.isEnabled()) {
-      return false;
-    }
+    console.log('[EMAIL] Attempting to send email to:', options.to);
+    console.log('[EMAIL] Subject:', options.subject);
 
     try {
-      const { data, error } = await resend!.emails.send({
+      const payload = {
         from: `${APP_NAME} <${FROM_EMAIL}>`,
-        to: options.to,
+        to: 'apricotgroupdoo@gmail.com', // TODO: revert to options.to after domain verification
         subject: options.subject,
         html: options.html,
         text: options.text,
-      });
+      };
+      console.log('[EMAIL] Sending with from:', payload.from);
+      console.log('[EMAIL] Original recipient:', options.to, '-> overridden to apricotgroupdoo@gmail.com');
+
+      const { data, error } = await resend.emails.send(payload);
 
       if (error) {
-        console.error('Failed to send email:', error);
+        console.error('[EMAIL] Resend API error:', JSON.stringify(error, null, 2));
         return false;
       }
 
-      console.log('Email sent successfully:', data?.id);
+      console.log('[EMAIL] Sent successfully! ID:', data?.id);
       return true;
     } catch (error) {
-      console.error('Email service error:', error);
+      console.error('[EMAIL] Exception caught:', error);
       return false;
     }
   }

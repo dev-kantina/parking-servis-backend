@@ -18,16 +18,27 @@ interface DateRange {
   endDate: Date
 }
 
+type WorkOrderType = 'all' | 'standard' | 'regular'
+
+function buildWorkOrderTypeFilter(workOrderType?: WorkOrderType) {
+  if (workOrderType === 'standard') return { standardId: { not: null } }
+  if (workOrderType === 'regular') return { standardId: null }
+  return {}
+}
+
 export const analyticsService = {
-  async getDashboardStats(range?: DateRange) {
-    const where = range
-      ? {
-          createdAt: {
-            gte: range.startDate,
-            lte: range.endDate,
-          },
-        }
-      : {}
+  async getDashboardStats(range?: DateRange, workOrderType?: WorkOrderType) {
+    const where = {
+      ...(range
+        ? {
+            createdAt: {
+              gte: range.startDate,
+              lte: range.endDate,
+            },
+          }
+        : {}),
+      ...buildWorkOrderTypeFilter(workOrderType),
+    }
 
     const [
       totalOrders,
@@ -94,15 +105,18 @@ export const analyticsService = {
     }
   },
 
-  async getWorkerPerformance(range?: DateRange) {
-    const where = range
-      ? {
-          createdAt: {
-            gte: range.startDate,
-            lte: range.endDate,
-          },
-        }
-      : {}
+  async getWorkerPerformance(range?: DateRange, workOrderType?: WorkOrderType) {
+    const where = {
+      ...(range
+        ? {
+            createdAt: {
+              gte: range.startDate,
+              lte: range.endDate,
+            },
+          }
+        : {}),
+      ...buildWorkOrderTypeFilter(workOrderType),
+    }
 
     const workers = await prisma.user.findMany({
       where: { role: Role.WORKER, isActive: true },
@@ -216,16 +230,18 @@ export const analyticsService = {
     return result
   },
 
-  async getLiveStatus() {
+  async getLiveStatus(workOrderType?: WorkOrderType) {
     const now = new Date()
     const oneHourAgo = subHours(now, 1)
     const todayStart = startOfDay(now)
     const todayEnd = endOfDay(now)
+    const woTypeFilter = buildWorkOrderTypeFilter(workOrderType)
 
     // Get work orders in progress with assigned worker details
     const inProgressOrders = await prisma.workOrder.findMany({
       where: {
         status: WorkOrderStatus.IN_PROGRESS,
+        ...woTypeFilter,
       },
       select: {
         id: true,
@@ -250,6 +266,7 @@ export const analyticsService = {
     const ordersByStatus = await prisma.workOrder.groupBy({
       by: ['status'],
       _count: { status: true },
+      where: { ...woTypeFilter },
     })
 
     // Get urgent/high priority active orders
@@ -263,6 +280,7 @@ export const analyticsService = {
             WorkOrderStatus.DECLINED,
           ],
         },
+        ...woTypeFilter,
       },
       select: {
         id: true,
@@ -294,6 +312,7 @@ export const analyticsService = {
             WorkOrderStatus.DECLINED,
           ],
         },
+        ...woTypeFilter,
       },
       select: {
         id: true,
@@ -333,6 +352,7 @@ export const analyticsService = {
             assignedWorkOrders: {
               where: {
                 status: WorkOrderStatus.IN_PROGRESS,
+                ...woTypeFilter,
               },
               select: {
                 id: true,
@@ -355,6 +375,7 @@ export const analyticsService = {
     const recentActivity = await prisma.workOrderStatusHistory.findMany({
       where: {
         createdAt: { gte: oneHourAgo },
+        workOrder: woTypeFilter,
       },
       select: {
         id: true,
@@ -387,6 +408,7 @@ export const analyticsService = {
           gte: todayStart,
           lte: todayEnd,
         },
+        ...woTypeFilter,
       },
     })
 
@@ -396,6 +418,7 @@ export const analyticsService = {
           gte: todayStart,
           lte: todayEnd,
         },
+        ...woTypeFilter,
       },
     })
 

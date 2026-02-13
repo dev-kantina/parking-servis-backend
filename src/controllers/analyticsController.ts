@@ -31,7 +31,8 @@ export class AnalyticsController {
   async getDashboardStats(req: Request, res: Response) {
     try {
       const range = getDateRange(req.query);
-      const stats = await analyticsService.getDashboardStats(range);
+      const workOrderType = req.query.workOrderType as 'all' | 'standard' | 'regular' | undefined;
+      const stats = await analyticsService.getDashboardStats(range, workOrderType);
       res.json(stats);
     } catch (error) {
       console.error('Analytics stats error:', error);
@@ -42,7 +43,8 @@ export class AnalyticsController {
   async getWorkerPerformance(req: Request, res: Response) {
     try {
       const range = getDateRange(req.query);
-      const performance = await analyticsService.getWorkerPerformance(range);
+      const workOrderType = req.query.workOrderType as 'all' | 'standard' | 'regular' | undefined;
+      const performance = await analyticsService.getWorkerPerformance(range, workOrderType);
       res.json(performance);
     } catch (error) {
       console.error('Worker performance error:', error);
@@ -76,9 +78,10 @@ export class AnalyticsController {
     }
   }
 
-  async getLiveStatus(_req: Request, res: Response) {
+  async getLiveStatus(req: Request, res: Response) {
     try {
-      const liveStatus = await analyticsService.getLiveStatus();
+      const workOrderType = req.query.workOrderType as 'all' | 'standard' | 'regular' | undefined;
+      const liveStatus = await analyticsService.getLiveStatus(workOrderType);
       res.json({ success: true, data: liveStatus });
     } catch (error) {
       console.error('Live status error:', error);

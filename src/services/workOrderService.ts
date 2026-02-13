@@ -48,6 +48,7 @@ export interface WorkOrderFilters {
   scheduledDateAfter?: Date;
   deadlineBefore?: Date;
   deadlineAfter?: Date;
+  workOrderType?: 'all' | 'standard' | 'regular';
 }
 
 export interface PaginationOptions {
@@ -131,6 +132,12 @@ export class WorkOrderService {
 
     if (filters.deadlineAfter) {
       where.deadline = { ...where.deadline, gte: filters.deadlineAfter };
+    }
+
+    if (filters.workOrderType === 'standard') {
+      where.standardId = { not: null };
+    } else if (filters.workOrderType === 'regular') {
+      where.standardId = null;
     }
 
     const [workOrders, total] = await Promise.all([
@@ -627,9 +634,15 @@ export class WorkOrderService {
     };
   }
 
-  async getCalendarData(year: number, month: number, workerId?: string) {
+  async getCalendarData(year: number, month: number, workerId?: string, workOrderType?: 'all' | 'standard' | 'regular') {
     const monthStart = startOfMonth(new Date(year, month - 1));
     const monthEnd = endOfMonth(new Date(year, month - 1));
+
+    const workOrderTypeFilter = workOrderType === 'standard'
+      ? [{ standardId: { not: null } }]
+      : workOrderType === 'regular'
+        ? [{ standardId: null }]
+        : [];
 
     // Get all work orders that overlap with this month
     // A work order overlaps if:
@@ -649,6 +662,8 @@ export class WorkOrderService {
           },
           // Optional worker filter
           ...(workerId ? [{ assignedToId: workerId }] : []),
+          // Optional work order type filter
+          ...workOrderTypeFilter,
         ],
       },
       select: {
@@ -783,9 +798,15 @@ export class WorkOrderService {
     };
   }
 
-  async getDayDetails(date: string, workerId?: string) {
+  async getDayDetails(date: string, workerId?: string, workOrderType?: 'all' | 'standard' | 'regular') {
     const dayStart = startOfDay(new Date(date));
     const dayEnd = endOfDay(new Date(date));
+
+    const workOrderTypeFilter = workOrderType === 'standard'
+      ? [{ standardId: { not: null } }]
+      : workOrderType === 'regular'
+        ? [{ standardId: null }]
+        : [];
 
     // Get work orders active on this day
     const workOrders = await prisma.workOrder.findMany({
@@ -799,6 +820,7 @@ export class WorkOrderService {
             ],
           },
           ...(workerId ? [{ assignedToId: workerId }] : []),
+          ...workOrderTypeFilter,
         ],
       },
       include: {
