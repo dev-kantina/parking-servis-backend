@@ -1,63 +1,63 @@
-import { Resend } from 'resend';
-import { STATUS_LABELS } from '../constants';
+import { Resend } from 'resend'
+import { STATUS_LABELS } from '../constants'
 
-// TODO: Remove hardcoded values after testing - revert to process.env
-const RESEND_API_KEY = 're_9imVbxb2_Np9HQ6GAmNsNNtmixE8NPVS1';
-const FROM_EMAIL = 'onboarding@resend.dev';
-const APP_NAME = 'Parking servis Herceg Novi';
+const RESEND_API_KEY = process.env.RESEND_API_KEY
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+const APP_NAME = process.env.APP_NAME || 'Parking servis Herceg Novi'
 
-const resend = new Resend(RESEND_API_KEY);
-console.log('[EMAIL] Service initialized with hardcoded config for testing');
+const resend = new Resend(RESEND_API_KEY)
+console.log('[EMAIL] Service initialized')
 
 export interface SendEmailOptions {
-  to: string;
-  subject: string;
-  html: string;
-  text?: string;
+  to: string
+  subject: string
+  html: string
+  text?: string
 }
 
 export interface WorkOrderEmailData {
-  recipientEmail: string;
-  recipientName: string;
-  workOrderTitle: string;
-  workOrderId: string;
-  location?: string;
-  priority: string;
-  deadline?: Date | null;
-  status?: string;
-  oldStatus?: string;
-  newStatus?: string;
-  note?: string;
+  recipientEmail: string
+  recipientName: string
+  workOrderTitle: string
+  workOrderId: string
+  location?: string
+  priority: string
+  deadline?: Date | null
+  status?: string
+  oldStatus?: string
+  newStatus?: string
+  note?: string
 }
 
 class EmailService {
   async sendEmail(options: SendEmailOptions): Promise<boolean> {
-    console.log('[EMAIL] Attempting to send email to:', options.to);
-    console.log('[EMAIL] Subject:', options.subject);
+    console.log('[EMAIL] Attempting to send email to:', options.to)
+    console.log('[EMAIL] Subject:', options.subject)
 
     try {
       const payload = {
         from: `${APP_NAME} <${FROM_EMAIL}>`,
-        to: 'apricotgroupdoo@gmail.com', // TODO: revert to options.to after domain verification
+        to: options.to,
         subject: options.subject,
         html: options.html,
         text: options.text,
-      };
-      console.log('[EMAIL] Sending with from:', payload.from);
-      console.log('[EMAIL] Original recipient:', options.to, '-> overridden to apricotgroupdoo@gmail.com');
-
-      const { data, error } = await resend.emails.send(payload);
-
-      if (error) {
-        console.error('[EMAIL] Resend API error:', JSON.stringify(error, null, 2));
-        return false;
       }
 
-      console.log('[EMAIL] Sent successfully! ID:', data?.id);
-      return true;
+      const { data, error } = await resend.emails.send(payload)
+
+      if (error) {
+        console.error(
+          '[EMAIL] Resend API error:',
+          JSON.stringify(error, null, 2),
+        )
+        return false
+      }
+
+      console.log('[EMAIL] Sent successfully! ID:', data?.id)
+      return true
     } catch (error) {
-      console.error('[EMAIL] Exception caught:', error);
-      return false;
+      console.error('[EMAIL] Exception caught:', error)
+      return false
     }
   }
 
@@ -68,14 +68,14 @@ class EmailService {
       MEDIUM: 'Srednji',
       HIGH: 'Visok',
       URGENT: 'Hitan',
-    };
+    }
 
     const priorityColors: Record<string, string> = {
       LOW: '#22c55e',
       MEDIUM: '#3b82f6',
       HIGH: '#f97316',
       URGENT: '#ef4444',
-    };
+    }
 
     const html = `
 <!DOCTYPE html>
@@ -85,7 +85,7 @@ class EmailService {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+  <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 30px; border-radius: 10px 10px 0 0;">
     <h1 style="color: white; margin: 0; font-size: 24px;">Novi Radni Nalog</h1>
   </div>
 
@@ -98,12 +98,16 @@ class EmailService {
       <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">${data.workOrderTitle}</h2>
 
       <table style="width: 100%; border-collapse: collapse;">
-        ${data.location ? `
+        ${
+          data.location
+            ? `
         <tr>
           <td style="padding: 8px 0; color: #64748b; width: 120px;">Lokacija:</td>
           <td style="padding: 8px 0; font-weight: 500;">${data.location}</td>
         </tr>
-        ` : ''}
+        `
+            : ''
+        }
         <tr>
           <td style="padding: 8px 0; color: #64748b;">Prioritet:</td>
           <td style="padding: 8px 0;">
@@ -112,25 +116,28 @@ class EmailService {
             </span>
           </td>
         </tr>
-        ${data.deadline ? `
+        ${
+          data.deadline
+            ? `
         <tr>
           <td style="padding: 8px 0; color: #64748b;">Rok:</td>
           <td style="padding: 8px 0; font-weight: 500;">${new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
         </tr>
-        ` : ''}
+        `
+            : ''
+        }
       </table>
     </div>
 
     <p>Molimo prijavite se u aplikaciju za više detalja i prihvatanje naloga.</p>
 
     <p style="margin-bottom: 0; color: #64748b; font-size: 14px;">
-      Srdačan pozdrav,<br>
-      <strong>${APP_NAME}</strong>
+      Pozdrav<br>
     </p>
   </div>
 </body>
 </html>
-    `.trim();
+    `.trim()
 
     const text = `
 Novi Radni Nalog
@@ -146,16 +153,15 @@ ${data.deadline ? `Rok: ${new Date(data.deadline).toLocaleDateString('sr-Latn-ME
 
 Molimo prijavite se u aplikaciju za više detalja i prihvatanje naloga.
 
-Srdačan pozdrav,
-${APP_NAME}
-    `.trim();
+Pozdrav
+    `.trim()
 
     return this.sendEmail({
       to: data.recipientEmail,
       subject: `Novi radni nalog: ${data.workOrderTitle}`,
       html,
       text,
-    });
+    })
   }
 
   // Send notification when work order status changes
@@ -166,11 +172,15 @@ ${APP_NAME}
       IN_PROGRESS: '#3b82f6',
       ON_HOLD: '#f97316',
       COMPLETED: '#22c55e',
-    };
+    }
 
-    const newStatusLabel = STATUS_LABELS[data.newStatus as keyof typeof STATUS_LABELS] || data.newStatus;
-    const oldStatusLabel = STATUS_LABELS[data.oldStatus as keyof typeof STATUS_LABELS] || data.oldStatus;
-    const newStatusColor = statusColors[data.newStatus || ''] || '#3b82f6';
+    const newStatusLabel =
+      STATUS_LABELS[data.newStatus as keyof typeof STATUS_LABELS] ||
+      data.newStatus
+    const oldStatusLabel =
+      STATUS_LABELS[data.oldStatus as keyof typeof STATUS_LABELS] ||
+      data.oldStatus
+    const newStatusColor = statusColors[data.newStatus || ''] || '#3b82f6'
 
     const html = `
 <!DOCTYPE html>
@@ -180,7 +190,7 @@ ${APP_NAME}
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+  <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 30px; border-radius: 10px 10px 0 0;">
     <h1 style="color: white; margin: 0; font-size: 24px;">Promjena Statusa</h1>
   </div>
 
@@ -202,32 +212,39 @@ ${APP_NAME}
         </span>
       </div>
 
-      ${data.note ? `
+      ${
+        data.note
+          ? `
       <div style="background: #f1f5f9; border-left: 4px solid ${newStatusColor}; padding: 12px 16px; margin-top: 15px; border-radius: 0 4px 4px 0;">
         <p style="margin: 0; color: #475569; font-size: 14px;"><strong>Napomena:</strong> ${data.note}</p>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
-      ${data.location ? `
+      ${
+        data.location
+          ? `
       <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
         <tr>
           <td style="padding: 8px 0; color: #64748b; width: 120px;">Lokacija:</td>
           <td style="padding: 8px 0; font-weight: 500;">${data.location}</td>
         </tr>
       </table>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
 
     <p>Prijavite se u aplikaciju za više detalja.</p>
 
     <p style="margin-bottom: 0; color: #64748b; font-size: 14px;">
-      Srdačan pozdrav,<br>
-      <strong>${APP_NAME}</strong>
+      Pozdrav<br>
     </p>
   </div>
 </body>
 </html>
-    `.trim();
+    `.trim()
 
     const text = `
 Promjena Statusa Radnog Naloga
@@ -244,17 +261,16 @@ ${data.location ? `Lokacija: ${data.location}` : ''}
 
 Prijavite se u aplikaciju za više detalja.
 
-Srdačan pozdrav,
-${APP_NAME}
-    `.trim();
+Pozdrav
+    `.trim()
 
     return this.sendEmail({
       to: data.recipientEmail,
       subject: `Status promijenjen: ${data.workOrderTitle} → ${newStatusLabel}`,
       html,
       text,
-    });
+    })
   }
 }
 
-export default new EmailService();
+export default new EmailService()

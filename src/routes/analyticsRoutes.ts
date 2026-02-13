@@ -7,7 +7,7 @@ const router: Router = Router();
 
 // Sve rute za analitiku zahtijevaju autentifikaciju i admin/manager ulogu
 router.use(authenticate);
-router.use(authorize(Role.ADMINISTRATOR, Role.MANAGER));
+router.use(authorize(Role.ADMINISTRATOR));
 
 router.get('/dashboard', analyticsController.getDashboardStats);
 router.get('/workers', analyticsController.getWorkerPerformance);

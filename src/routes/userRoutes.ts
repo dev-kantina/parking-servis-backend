@@ -60,7 +60,7 @@ router.post(
     body('role')
       .isIn(Object.values(Role))
       .withMessage('Nevažeća uloga'),
-    body('phone').optional().isMobilePhone('any').withMessage('Nevažeći broj telefona'),
+    body('phone').optional().isString(),
     validate,
   ],
   userController.create.bind(userController)

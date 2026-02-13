@@ -61,8 +61,8 @@ router.post(
     body('description')
       .notEmpty()
       .withMessage('Opis je obavezan')
-      .isLength({ min: 10 })
-      .withMessage('Opis mora imati najmanje 10 karaktera'),
+      .isLength({ min: 4 })
+      .withMessage('Opis mora imati najmanje 4 karaktera'),
     body('location').optional().isString(),
     body('latitude')
       .optional()
@@ -116,8 +116,8 @@ router.put(
       .withMessage('Naslov mora imati između 3 i 200 karaktera'),
     body('description')
       .optional()
-      .isLength({ min: 10 })
-      .withMessage('Opis mora imati najmanje 10 karaktera'),
+      .isLength({ min: 4 })
+      .withMessage('Opis mora imati najmanje 4 karaktera'),
     body('location').optional().isString(),
     body('priority')
       .optional()

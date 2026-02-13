@@ -301,7 +301,9 @@ export class StandardService {
         // Check recurrence match
         let matches = false;
         if (standard.recurrenceType === RecurrenceType.DAILY) {
-          matches = true;
+          // Only workdays (Monday-Friday) for daily standards
+          const jsDay = currentDate.getUTCDay();
+          matches = jsDay >= 1 && jsDay <= 5;
         } else if (standard.recurrenceType === RecurrenceType.WEEKLY) {
           matches = standard.daysOfWeek.includes(dayOfWeek);
         }
