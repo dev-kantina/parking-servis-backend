@@ -1,8 +1,5 @@
 import {
-  endOfDay,
-  endOfMonth,
   format,
-  startOfDay,
   subHours,
   subMonths,
 } from 'date-fns'
@@ -12,6 +9,7 @@ import {
   WorkOrderStatus,
 } from '../../generated/prisma'
 import prisma from '../config/database'
+import { getBusinessToday, getBusinessDayBounds, formatBusinessDate } from '../utils/timezone'
 
 interface DateRange {
   startDate: Date
@@ -195,11 +193,11 @@ export const analyticsService = {
       },
     })
 
-    // Group by month
+    // Group by month (using business timezone for consistent month attribution)
     const monthlyStats = new Map<string, { total: number; completed: number }>()
 
     orders.forEach((order: any) => {
-      const monthKey = format(order.createdAt, 'yyyy-MM')
+      const monthKey = formatBusinessDate(order.createdAt).substring(0, 7)
       const stats = monthlyStats.get(monthKey) || { total: 0, completed: 0 }
 
       stats.total++
@@ -218,13 +216,13 @@ export const analyticsService = {
       const stats = monthlyStats.get(key) || { total: 0, completed: 0 }
 
       result.push({
-        month: format(current, 'MMM yyyy'), // e.g., "Dec 2024"
+        month: format(current, 'MMM yyyy'),
         total: stats.total,
         completed: stats.completed,
       })
 
-      current = endOfMonth(current)
-      current.setDate(current.getDate() + 1) // Move to start of next month
+      // Move to start of next month (UTC-safe)
+      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + 1, 1))
     }
 
     return result
@@ -233,8 +231,8 @@ export const analyticsService = {
   async getLiveStatus(workOrderType?: WorkOrderType) {
     const now = new Date()
     const oneHourAgo = subHours(now, 1)
-    const todayStart = startOfDay(now)
-    const todayEnd = endOfDay(now)
+    const todayStr = getBusinessToday(now)
+    const { start: todayStart, end: todayEnd } = getBusinessDayBounds(todayStr)
     const woTypeFilter = buildWorkOrderTypeFilter(workOrderType)
 
     // Get work orders in progress with assigned worker details

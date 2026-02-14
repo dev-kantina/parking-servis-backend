@@ -121,7 +121,7 @@ class EmailService {
             ? `
         <tr>
           <td style="padding: 8px 0; color: #64748b;">Rok:</td>
-          <td style="padding: 8px 0; font-weight: 500;">${new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+          <td style="padding: 8px 0; font-weight: 500;">${new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { timeZone: 'Europe/Podgorica', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
         </tr>
         `
             : ''
@@ -149,7 +149,7 @@ Dodijeljen vam je novi radni nalog:
 Naslov: ${data.workOrderTitle}
 ${data.location ? `Lokacija: ${data.location}` : ''}
 Prioritet: ${priorityLabels[data.priority] || data.priority}
-${data.deadline ? `Rok: ${new Date(data.deadline).toLocaleDateString('sr-Latn-ME')}` : ''}
+${data.deadline ? `Rok: ${new Date(data.deadline).toLocaleDateString('sr-Latn-ME', { timeZone: 'Europe/Podgorica' })}` : ''}
 
 Molimo prijavite se u aplikaciju za više detalja i prihvatanje naloga.
 

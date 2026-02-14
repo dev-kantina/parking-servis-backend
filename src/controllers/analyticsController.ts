@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { analyticsService } from '../services/analyticsService';
 import { exportService } from '../services/exportService';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { subDays } from 'date-fns';
+import { getBusinessToday, getBusinessDayBounds, getBusinessMonthBounds } from '../utils/timezone';
 
 function getDateRange(query: Request['query']) {
   const { period, startDate, endDate } = query;
@@ -9,17 +10,33 @@ function getDateRange(query: Request['query']) {
 
   // Custom date range takes precedence
   if (startDate && endDate) {
-    return {
-      startDate: startOfDay(parseISO(startDate as string)),
-      endDate: endOfDay(parseISO(endDate as string)),
-    };
+    const { start } = getBusinessDayBounds(startDate as string);
+    const { end } = getBusinessDayBounds(endDate as string);
+    return { startDate: start, endDate: end };
   }
 
   // Predefined periods
   if (period === 'week') {
-    return { startDate: startOfWeek(now, { weekStartsOn: 1 }), endDate: endOfWeek(now, { weekStartsOn: 1 }) };
+    // Find Monday of the current week in business timezone
+    const todayStr = getBusinessToday(now);
+    const todayDate = new Date(todayStr + 'T12:00:00Z'); // noon UTC to avoid DST edge
+    const dow = todayDate.getUTCDay(); // 0=Sun, 1=Mon...
+    const mondayOffset = dow === 0 ? -6 : 1 - dow;
+    const mondayDate = new Date(todayDate);
+    mondayDate.setUTCDate(mondayDate.getUTCDate() + mondayOffset);
+    const mondayStr = `${mondayDate.getUTCFullYear()}-${String(mondayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(mondayDate.getUTCDate()).padStart(2, '0')}`;
+    const sundayDate = new Date(mondayDate);
+    sundayDate.setUTCDate(sundayDate.getUTCDate() + 6);
+    const sundayStr = `${sundayDate.getUTCFullYear()}-${String(sundayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(sundayDate.getUTCDate()).padStart(2, '0')}`;
+    const { start } = getBusinessDayBounds(mondayStr);
+    const { end } = getBusinessDayBounds(sundayStr);
+    return { startDate: start, endDate: end };
   } else if (period === 'month') {
-    return { startDate: startOfMonth(now), endDate: endOfMonth(now) };
+    const todayStr = getBusinessToday(now);
+    const year = parseInt(todayStr.substring(0, 4));
+    const month = parseInt(todayStr.substring(5, 7));
+    const { start, end } = getBusinessMonthBounds(year, month);
+    return { startDate: start, endDate: end };
   } else if (period === 'last30') {
     return { startDate: subDays(now, 30), endDate: now };
   }

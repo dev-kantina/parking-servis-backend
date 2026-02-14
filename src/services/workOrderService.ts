@@ -2,7 +2,7 @@ import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import notificationService from './notificationService';
 import { WorkOrderStatus, WorkOrderPriority, Role } from '../../generated/prisma';
-import { startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { getBusinessMonthBounds, getBusinessDayBounds, formatBusinessDate, eachDayInRange } from '../utils/timezone';
 import { STATUS_LABELS } from '../constants';
 
 export interface WorkOrderEquipmentInput {
@@ -635,8 +635,7 @@ export class WorkOrderService {
   }
 
   async getCalendarData(year: number, month: number, workerId?: string, workOrderType?: 'all' | 'standard' | 'regular') {
-    const monthStart = startOfMonth(new Date(year, month - 1));
-    const monthEnd = endOfMonth(new Date(year, month - 1));
+    const { start: monthStart, end: monthEnd } = getBusinessMonthBounds(year, month);
 
     const workOrderTypeFilter = workOrderType === 'standard'
       ? [{ standardId: { not: null } }]
@@ -696,9 +695,9 @@ export class WorkOrderService {
     }> = {};
 
     // Initialize all days in the month
-    const currentDate = new Date(monthStart);
-    while (currentDate <= monthEnd) {
-      const dateKey = currentDate.toISOString().split('T')[0];
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    for (let d = 1; d <= lastDay; d++) {
+      const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       dailySummary[dateKey] = {
         total: 0,
         completed: 0,
@@ -706,13 +705,12 @@ export class WorkOrderService {
         overdue: 0,
         deadlines: 0,
       };
-      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     // Process each work order
     workOrders.forEach((wo) => {
-      const deadlineDate = wo.deadline?.toISOString().split('T')[0];
-      const completedDate = wo.completedAt?.toISOString().split('T')[0];
+      const deadlineDate = wo.deadline ? formatBusinessDate(wo.deadline) : null;
+      const completedDate = wo.completedAt ? formatBusinessDate(wo.completedAt) : null;
 
       // Count deadline
       if (deadlineDate && dailySummary[deadlineDate]) {
@@ -725,14 +723,17 @@ export class WorkOrderService {
       }
 
       // For each day the work order was active
-      const orderStart = new Date(Math.max(wo.createdAt.getTime(), monthStart.getTime()));
-      const orderEnd = wo.completedAt
-        ? new Date(Math.min(wo.completedAt.getTime(), monthEnd.getTime()))
-        : monthEnd;
+      const orderStartDate = formatBusinessDate(
+        new Date(Math.max(wo.createdAt.getTime(), monthStart.getTime()))
+      );
+      const orderEndDate = formatBusinessDate(
+        wo.completedAt
+          ? new Date(Math.min(wo.completedAt.getTime(), monthEnd.getTime()))
+          : monthEnd
+      );
 
-      const iterDate = new Date(orderStart);
-      while (iterDate <= orderEnd) {
-        const dateKey = iterDate.toISOString().split('T')[0];
+      const dayKeys = eachDayInRange(orderStartDate, orderEndDate);
+      for (const dateKey of dayKeys) {
         if (dailySummary[dateKey]) {
           dailySummary[dateKey].total++;
 
@@ -741,11 +742,10 @@ export class WorkOrderService {
           }
 
           // Check if overdue on this day
-          if (!wo.completedAt && wo.deadline && iterDate > wo.deadline) {
+          if (!wo.completedAt && deadlineDate && dateKey > deadlineDate) {
             dailySummary[dateKey].overdue++;
           }
         }
-        iterDate.setDate(iterDate.getDate() + 1);
       }
     });
 
@@ -799,8 +799,7 @@ export class WorkOrderService {
   }
 
   async getDayDetails(date: string, workerId?: string, workOrderType?: 'all' | 'standard' | 'regular') {
-    const dayStart = startOfDay(new Date(date));
-    const dayEnd = endOfDay(new Date(date));
+    const { start: dayStart, end: dayEnd } = getBusinessDayBounds(date);
 
     const workOrderTypeFilter = workOrderType === 'standard'
       ? [{ standardId: { not: null } }]

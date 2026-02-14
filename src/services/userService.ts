@@ -2,6 +2,7 @@ import prisma from '../config/database'
 import { ApiError } from '../utils/ApiError'
 import { Role } from '../../generated/prisma'
 import { hashPassword } from '../utils/passwordHash'
+import { getBusinessToday, parseDate } from '../utils/timezone'
 
 export interface UserFilters {
   role?: Role
@@ -258,15 +259,13 @@ export class UserService {
   }
 
   async getAvailableWorkers(date?: string) {
-    // Get today (UTC midnight)
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
-    
-    // Tomorrow for range start (we want next work date after today)
-    const tomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0));
-    
-    // Look at the next 7 days (not "rest of week" which fails on Sundays)
-    const next7Days = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 7, 0, 0, 0, 0));
+    // Use business timezone to determine "today"
+    const todayStr = getBusinessToday();
+    const today = parseDate(todayStr);
+
+    // Tomorrow and next 7 days for range queries
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const next7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     // Parse target date if provided
     let targetDate: Date | null = null;

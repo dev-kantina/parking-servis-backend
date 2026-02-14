@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import { RecurrenceType, WorkOrderPriority, WorkOrderStatus, DayOfWeek } from '../../generated/prisma';
+import { toBusinessUTC, formatBusinessDate } from '../utils/timezone';
 
 export interface CreateStandardDto {
   title: string;
@@ -254,6 +255,13 @@ export class StandardService {
     const start = new Date(Date.UTC(startYear, startMonth - 1, startDay));
     const end = new Date(Date.UTC(endYear, endMonth - 1, endDay));
 
+    // Reject past date ranges
+    const today = new Date();
+    const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    if (end < todayUTC) {
+      throw ApiError.badRequest('Nije moguće generisati naloge za prošle periode');
+    }
+
     // Fetch active standards
     const where: any = { isActive: true };
     if (data.standardIds && data.standardIds.length > 0) {
@@ -284,7 +292,7 @@ export class StandardService {
     // Build set of existing standard+date combos for deduplication
     const existingSet = new Set(
       existingWorkOrders.map(wo => {
-        const dateStr = wo.scheduledDate?.toISOString().split('T')[0];
+        const dateStr = wo.scheduledDate ? formatBusinessDate(wo.scheduledDate) : '';
         return `${wo.standardId}_${dateStr}`;
       })
     );
@@ -314,23 +322,9 @@ export class StandardService {
         const key = `${standard.id}_${dateStr}`;
         if (existingSet.has(key)) continue;
 
-        // Parse times
-        const [startH, startM] = standard.startTime.split(':').map(Number);
-        const [endH, endM] = standard.endTime.split(':').map(Number);
-
-        const scheduledDate = new Date(Date.UTC(
-          currentDate.getUTCFullYear(),
-          currentDate.getUTCMonth(),
-          currentDate.getUTCDate(),
-          startH, startM
-        ));
-
-        const deadline = new Date(Date.UTC(
-          currentDate.getUTCFullYear(),
-          currentDate.getUTCMonth(),
-          currentDate.getUTCDate(),
-          endH, endM
-        ));
+        // Convert wall-clock times to proper UTC using business timezone
+        const scheduledDate = toBusinessUTC(dateStr, standard.startTime);
+        const deadline = toBusinessUTC(dateStr, standard.endTime);
 
         // Handle overnight/24h shifts: if deadline <= scheduledDate, shift spans midnight
         if (deadline.getTime() <= scheduledDate.getTime()) {

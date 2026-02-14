@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import { DayOfWeek } from '../../generated/prisma';
+import { getBusinessToday, getBusinessYesterday, getBusinessDayOfWeek, parseDate } from '../utils/timezone';
 
 // Weekly template DTOs
 export interface SetScheduleEntryDto {
@@ -602,30 +603,15 @@ export class ScheduleService {
 
   async getMyShiftToday(userId: string) {
     const now = new Date();
-
-    // Today and yesterday as UTC dates (YYYY-MM-DD)
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-
-    const daysMap: Record<number, DayOfWeek> = {
-      0: 'SUNDAY',
-      1: 'MONDAY',
-      2: 'TUESDAY',
-      3: 'WEDNESDAY',
-      4: 'THURSDAY',
-      5: 'FRIDAY',
-      6: 'SATURDAY',
-    };
-
-    const todayDow = daysMap[now.getDay()];
-    const yesterdayDow = daysMap[yesterday.getDay()];
+    const todayStr = getBusinessToday(now);
+    const yesterdayStr = getBusinessYesterday(now);
+    const todayDow = getBusinessDayOfWeek(now);
+    const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayDow = getBusinessDayOfWeek(yesterdayDate);
 
     // Helper: get shift for a specific date, checking ScheduleEntry first, then EmployeeSchedule
     const getShiftForDate = async (dateStr: string, dayOfWeek: DayOfWeek) => {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const dateObj = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+      const dateObj = parseDate(dateStr);
 
       // Check date-specific entry first
       const entry = await prisma.scheduleEntry.findUnique({
