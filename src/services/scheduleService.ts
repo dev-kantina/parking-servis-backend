@@ -600,6 +600,80 @@ export class ScheduleService {
     };
   }
 
+  async getMyShiftToday(userId: string) {
+    const now = new Date();
+
+    // Today and yesterday as UTC dates (YYYY-MM-DD)
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+    const daysMap: Record<number, DayOfWeek> = {
+      0: 'SUNDAY',
+      1: 'MONDAY',
+      2: 'TUESDAY',
+      3: 'WEDNESDAY',
+      4: 'THURSDAY',
+      5: 'FRIDAY',
+      6: 'SATURDAY',
+    };
+
+    const todayDow = daysMap[now.getDay()];
+    const yesterdayDow = daysMap[yesterday.getDay()];
+
+    // Helper: get shift for a specific date, checking ScheduleEntry first, then EmployeeSchedule
+    const getShiftForDate = async (dateStr: string, dayOfWeek: DayOfWeek) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+
+      // Check date-specific entry first
+      const entry = await prisma.scheduleEntry.findUnique({
+        where: {
+          userId_date: { userId, date: dateObj },
+        },
+        include: { shift: true },
+      });
+
+      if (entry) {
+        return {
+          shiftName: entry.shift.name,
+          startTime: entry.shift.startTime,
+          endTime: entry.shift.endTime,
+        };
+      }
+
+      // Fall back to weekly template
+      const weekly = await prisma.employeeSchedule.findUnique({
+        where: {
+          userId_dayOfWeek: { userId, dayOfWeek },
+        },
+        include: { shift: true },
+      });
+
+      if (weekly) {
+        return {
+          shiftName: weekly.shift.name,
+          startTime: weekly.shift.startTime,
+          endTime: weekly.shift.endTime,
+        };
+      }
+
+      return null;
+    };
+
+    const todayShift = await getShiftForDate(todayStr, todayDow);
+
+    // Only fetch yesterday's shift if it's overnight (endTime < startTime)
+    const yesterdayCandidate = await getShiftForDate(yesterdayStr, yesterdayDow);
+    const yesterdayShift =
+      yesterdayCandidate && yesterdayCandidate.endTime < yesterdayCandidate.startTime
+        ? yesterdayCandidate
+        : null;
+
+    return { todayShift, yesterdayShift };
+  }
+
   async getWorkersAvailableOnDate(date: string) {
     // Parse date string as UTC midnight (database stores dates as UTC midnight)
     const [year, month, day] = date.split('-').map(Number);

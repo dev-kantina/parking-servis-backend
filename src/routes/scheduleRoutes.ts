@@ -10,6 +10,12 @@ const router: IRouter = Router();
 // All requests must be authenticated
 router.use(authenticate);
 
+// GET /api/schedules/my-shift-today - Get current user's shift for today (no authorization - workers need it)
+router.get(
+  '/my-shift-today',
+  scheduleController.getMyShiftToday.bind(scheduleController)
+);
+
 // GET /api/schedules/matrix - Get schedule matrix (all workers with their weekly schedules)
 router.get(
   '/matrix',

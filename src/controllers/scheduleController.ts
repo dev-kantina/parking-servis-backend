@@ -124,6 +124,21 @@ export class ScheduleController {
     }
   }
 
+  async getMyShiftToday(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await scheduleService.getMyShiftToday(req.user!.id);
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // ========================================
   // DATE-SPECIFIC SCHEDULE ENTRY ENDPOINTS
   // ========================================
