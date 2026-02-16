@@ -5,3 +5,4 @@ generated
 uploads
 *.log
 .DS_Store
+prisma/seed.ts

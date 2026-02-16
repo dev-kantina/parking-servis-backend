@@ -22,11 +22,7 @@ dotenv.config()
 
 const app: Application = express()
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  process.env.FRONTEND_URL,
-].filter(Boolean) as string[]
+const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean) as string[]
 
 const corsOptions = {
   origin: allowedOrigins,
@@ -50,7 +46,7 @@ app.use(
       },
     },
     crossOriginEmbedderPolicy: false, // Allow loading images from R2
-  })
+  }),
 )
 
 app.use('/api', apiLimiter)

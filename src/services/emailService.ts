@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import { STATUS_LABELS } from '../constants'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || ''
 const APP_NAME = process.env.APP_NAME || 'Parking servis Herceg Novi'
 
 const resend = new Resend(RESEND_API_KEY)
