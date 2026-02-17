@@ -22,7 +22,10 @@ dotenv.config()
 
 const app: Application = express()
 
-const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean) as string[]
+const DEV_FRONTEND_URL = 'https://parking-servis-hn-frontend.vercel.app'
+const allowedOrigins = [process.env.FRONTEND_URL, DEV_FRONTEND_URL].filter(
+  Boolean,
+) as string[]
 
 const corsOptions = {
   origin: allowedOrigins,
