@@ -314,6 +314,20 @@ export class StandardService {
           matches = jsDay >= 1 && jsDay <= 5;
         } else if (standard.recurrenceType === RecurrenceType.WEEKLY) {
           matches = standard.daysOfWeek.includes(dayOfWeek);
+        } else if (standard.recurrenceType === RecurrenceType.BIWEEKLY) {
+          // Every 15 days from the standard's creation date
+          const createdDate = new Date(standard.createdAt);
+          const createdUTC = Date.UTC(createdDate.getUTCFullYear(), createdDate.getUTCMonth(), createdDate.getUTCDate());
+          const currentUTC = Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate());
+          const diffDays = Math.round((currentUTC - createdUTC) / (1000 * 60 * 60 * 24));
+          matches = diffDays >= 0 && diffDays % 15 === 0;
+        } else if (standard.recurrenceType === RecurrenceType.MONTHLY) {
+          // Same day of the month as the standard's creation date
+          const createdDay = new Date(standard.createdAt).getUTCDate();
+          const currentDay = currentDate.getUTCDate();
+          // Handle months with fewer days (e.g., created on 31st, current month has 28 days)
+          const lastDayOfMonth = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0)).getUTCDate();
+          matches = currentDay === Math.min(createdDay, lastDayOfMonth);
         }
 
         if (!matches) continue;

@@ -48,6 +48,8 @@ enum DayOfWeek {
 enum RecurrenceType {
   DAILY
   WEEKLY
+  BIWEEKLY
+  MONTHLY
 }
 
 model User {
