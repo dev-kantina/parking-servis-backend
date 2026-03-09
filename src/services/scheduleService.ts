@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
-import { DayOfWeek } from '../../generated/prisma';
+import { DayOfWeek, Role } from '../../generated/prisma';
 import { getBusinessToday, getBusinessYesterday, getBusinessDayOfWeek, parseDate } from '../utils/timezone';
 
 // Weekly template DTOs
@@ -263,7 +263,7 @@ export class ScheduleService {
     // Get all active workers with their schedules
     const workers = await prisma.user.findMany({
       where: {
-        role: 'WORKER',
+        role: { in: [Role.WORKER, Role.TECHNICAL_SUPPORT] },
         isActive: true,
       },
       select: {
@@ -456,7 +456,7 @@ export class ScheduleService {
 
     // Get workers to generate schedules for
     const whereUsers: any = {
-      role: 'WORKER',
+      role: { in: [Role.WORKER, Role.TECHNICAL_SUPPORT] },
       isActive: true,
     };
 
@@ -531,7 +531,7 @@ export class ScheduleService {
     // Get all active workers
     const workers = await prisma.user.findMany({
       where: {
-        role: 'WORKER',
+        role: { in: [Role.WORKER, Role.TECHNICAL_SUPPORT] },
         isActive: true,
       },
       select: {
