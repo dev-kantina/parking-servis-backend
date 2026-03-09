@@ -12,14 +12,14 @@ router.use(authenticate)
 // GET /api/standards - List all standards
 router.get(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   standardController.getAll.bind(standardController),
 )
 
 // POST /api/standards/generate - Generate work orders (BEFORE /:id)
 router.post(
   '/generate',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('startDate')
       .notEmpty()
@@ -43,7 +43,7 @@ router.post(
 // GET /api/standards/:id - Get standard details
 router.get(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [param('id').isUUID().withMessage('ID mora biti validan UUID'), validate],
   standardController.getById.bind(standardController),
 )
@@ -51,7 +51,7 @@ router.get(
 // POST /api/standards - Create standard
 router.post(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('title')
       .notEmpty()
@@ -107,7 +107,7 @@ router.post(
 // PUT /api/standards/:id - Update standard
 router.put(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     body('title')

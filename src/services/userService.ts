@@ -185,7 +185,7 @@ export class UserService {
   async getWorkers() {
     const workers = await prisma.user.findMany({
       where: {
-        role: Role.WORKER,
+        role: { in: [Role.WORKER, Role.TECHNICAL_SUPPORT] },
         isActive: true,
       },
       select: {
@@ -205,7 +205,7 @@ export class UserService {
   async getWorkersWithStats() {
     const workers = await prisma.user.findMany({
       where: {
-        role: Role.WORKER,
+        role: { in: [Role.WORKER, Role.TECHNICAL_SUPPORT] },
         isActive: true,
       },
       select: {
@@ -274,10 +274,10 @@ export class UserService {
       targetDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
     }
 
-    // Get all active workers
+    // Get all active workers (including technical support)
     const workers = await prisma.user.findMany({
       where: {
-        role: Role.WORKER,
+        role: { in: [Role.WORKER, Role.TECHNICAL_SUPPORT] },
         isActive: true,
       },
       select: {

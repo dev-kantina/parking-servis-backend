@@ -117,7 +117,7 @@ export const analyticsService = {
     }
 
     const workers = await prisma.user.findMany({
-      where: { role: Role.WORKER, isActive: true },
+      where: { role: { in: [Role.WORKER, Role.TECHNICAL_SUPPORT] }, isActive: true },
       select: {
         id: true,
         firstName: true,

@@ -13,14 +13,14 @@ router.use(authenticate)
 // GET /api/work-orders/stats - Statistike (samo za menadžere i administratore)
 router.get(
   '/stats',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   workOrderController.getStats.bind(workOrderController),
 )
 
 // GET /api/work-orders/calendar - Kalendarski prikaz (samo za menadžere i administratore)
 router.get(
   '/calendar',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     query('year')
       .optional()
@@ -42,7 +42,7 @@ router.get(
 // GET /api/work-orders/calendar/:date - Detalji dana (samo za menadžere i administratore)
 router.get(
   '/calendar/:date',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('date').isISO8601().withMessage('Datum mora biti u ISO8601 formatu'),
     query('workerId')
@@ -83,10 +83,10 @@ router.get(
   workOrderController.getById.bind(workOrderController),
 )
 
-// POST /api/work-orders - Kreiranje naloga (samo menadžeri i administratori)
+// POST /api/work-orders - Kreiranje naloga (samo menadžeri, administratori i tehnička podrška)
 router.post(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('title')
       .notEmpty()

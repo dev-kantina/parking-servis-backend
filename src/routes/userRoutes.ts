@@ -13,28 +13,28 @@ router.use(authenticate);
 // GET /api/users/workers - Lista aktivnih radnika (za dropdown)
 router.get(
   '/workers',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   userController.getWorkers.bind(userController)
 );
 
 // GET /api/users/workers/stats - Radnici sa statistikama
 router.get(
   '/workers/stats',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   userController.getWorkersWithStats.bind(userController)
 );
 
 // GET /api/users/workers/available - Radnici koji rade danas (ili na određeni dan)
 router.get(
   '/workers/available',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   userController.getAvailableWorkers.bind(userController)
 );
 
 // GET /api/users - Lista svih korisnika (samo admin i menadžer)
 router.get(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   userController.getAll.bind(userController)
 );
 
@@ -69,7 +69,7 @@ router.post(
 // GET /api/users/:id - Detalji korisnika
 router.get(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     validate,

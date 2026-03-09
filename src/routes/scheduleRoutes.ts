@@ -19,21 +19,21 @@ router.get(
 // GET /api/schedules/matrix - Get schedule matrix (all workers with their weekly schedules)
 router.get(
   '/matrix',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   scheduleController.getScheduleMatrix.bind(scheduleController)
 );
 
 // GET /api/schedules - List all schedules
 router.get(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   scheduleController.getAll.bind(scheduleController)
 );
 
 // GET /api/schedules/user/:userId - Get schedules for a specific user
 router.get(
   '/user/:userId',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('userId').isUUID().withMessage('ID korisnika mora biti validan UUID'),
     validate,
@@ -44,7 +44,7 @@ router.get(
 // POST /api/schedules - Set a schedule entry (create or update)
 router.post(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('userId')
       .notEmpty()
@@ -69,7 +69,7 @@ router.post(
 // PUT /api/schedules/user/:userId - Bulk update user's weekly schedule
 router.put(
   '/user/:userId',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('userId').isUUID().withMessage('ID korisnika mora biti validan UUID'),
     body('schedule')
@@ -90,7 +90,7 @@ router.put(
 // DELETE /api/schedules/:id - Delete a specific schedule entry
 router.delete(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     validate,
@@ -101,7 +101,7 @@ router.delete(
 // DELETE /api/schedules/user/:userId/:dayOfWeek - Delete schedule for user on specific day
 router.delete(
   '/user/:userId/:dayOfWeek',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('userId').isUUID().withMessage('ID korisnika mora biti validan UUID'),
     param('dayOfWeek')
@@ -119,28 +119,28 @@ router.delete(
 // GET /api/schedules/entries - Get schedule entries by date range
 router.get(
   '/entries',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   scheduleController.getEntriesByDateRange.bind(scheduleController)
 );
 
 // GET /api/schedules/calendar - Get calendar view for a date range
 router.get(
   '/calendar',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   scheduleController.getCalendarView.bind(scheduleController)
 );
 
 // GET /api/schedules/available - Get workers available on a specific date
 router.get(
   '/available',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   scheduleController.getWorkersAvailableOnDate.bind(scheduleController)
 );
 
 // POST /api/schedules/entries - Set a date-specific schedule entry
 router.post(
   '/entries',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('userId')
       .notEmpty()
@@ -169,7 +169,7 @@ router.post(
 // POST /api/schedules/generate - Generate schedule entries from weekly template
 router.post(
   '/generate',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('startDate')
       .notEmpty()
@@ -197,7 +197,7 @@ router.post(
 // DELETE /api/schedules/entries/:userId/:date - Delete a date-specific schedule entry
 router.delete(
   '/entries/:userId/:date',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('userId').isUUID().withMessage('ID korisnika mora biti validan UUID'),
     param('date').isISO8601().withMessage('Datum mora biti u ISO 8601 formatu'),

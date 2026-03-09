@@ -80,7 +80,7 @@ const ALL_STATUSES = [
 
 // Funkcija za dobijanje dozvoljenih prelaza na osnovu uloge
 const getStatusTransitions = (status: WorkOrderStatus, role: Role): WorkOrderStatus[] => {
-  if (role === Role.ADMINISTRATOR || role === Role.MANAGER) {
+  if (role === Role.ADMINISTRATOR || role === Role.MANAGER || role === Role.TECHNICAL_SUPPORT) {
     // Admin/Manager može mijenjati u bilo koji status osim trenutnog
     return ALL_STATUSES.filter(s => s !== status);
   }

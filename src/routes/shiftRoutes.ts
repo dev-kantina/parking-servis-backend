@@ -13,14 +13,14 @@ router.use(authenticate);
 // GET /api/shifts - List all shifts
 router.get(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   shiftController.getAll.bind(shiftController)
 );
 
 // GET /api/shifts/:id - Get shift details
 router.get(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     validate,
@@ -31,7 +31,7 @@ router.get(
 // POST /api/shifts - Create new shift
 router.post(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('name')
       .notEmpty()
@@ -56,7 +56,7 @@ router.post(
 // PUT /api/shifts/:id - Update shift
 router.put(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     body('name')
@@ -83,7 +83,7 @@ router.put(
 // DELETE /api/shifts/:id - Delete (deactivate) shift
 router.delete(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     validate,
@@ -94,7 +94,7 @@ router.delete(
 // PATCH /api/shifts/:id/status - Activate/deactivate shift
 router.patch(
   '/:id/status',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     body('isActive').isBoolean().withMessage('isActive mora biti boolean'),

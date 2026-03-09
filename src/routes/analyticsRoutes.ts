@@ -5,14 +5,17 @@ import { Role } from '../../generated/prisma';
 
 const router: Router = Router();
 
-// Sve rute za analitiku zahtijevaju autentifikaciju i admin/manager ulogu
+// Sve rute za analitiku zahtijevaju autentifikaciju
 router.use(authenticate);
-router.use(authorize(Role.ADMINISTRATOR));
 
+// Live status je dostupan i za menadžere i tehničku podršku (koristi se na kontrolnoj tabli)
+router.get('/live', authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT), analyticsController.getLiveStatus);
+
+// Ostale analitičke rute su samo za administratore
+router.use(authorize(Role.ADMINISTRATOR));
 router.get('/dashboard', analyticsController.getDashboardStats);
 router.get('/workers', analyticsController.getWorkerPerformance);
 router.get('/trends', analyticsController.getTrends);
 router.get('/export', analyticsController.exportData);
-router.get('/live', analyticsController.getLiveStatus);
 
 export default router;

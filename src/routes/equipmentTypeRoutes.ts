@@ -29,7 +29,7 @@ router.get(
 // POST /api/equipment-types - Create new equipment type (Admin/Manager)
 router.post(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     body('name')
       .notEmpty()
@@ -48,7 +48,7 @@ router.post(
 // PUT /api/equipment-types/:id - Update equipment type (Admin/Manager)
 router.put(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     body('name')
@@ -71,7 +71,7 @@ router.put(
 // DELETE /api/equipment-types/:id - Delete (deactivate) equipment type (Admin/Manager)
 router.delete(
   '/:id',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     validate,
@@ -82,7 +82,7 @@ router.delete(
 // PATCH /api/equipment-types/:id/status - Activate/deactivate equipment type (Admin/Manager)
 router.patch(
   '/:id/status',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
   [
     param('id').isUUID().withMessage('ID mora biti validan UUID'),
     body('isActive').isBoolean().withMessage('isActive mora biti boolean'),
