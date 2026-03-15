@@ -10,10 +10,10 @@ const router: IRouter = Router();
 // All requests must be authenticated
 router.use(authenticate);
 
-// GET /api/shifts - List all shifts
+// GET /api/shifts - List all shifts (svi korisnici za filter)
 router.get(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.WORKER),
   shiftController.getAll.bind(shiftController)
 );
 

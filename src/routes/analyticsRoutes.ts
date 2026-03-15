@@ -11,8 +11,8 @@ router.use(authenticate);
 // Live status je dostupan i za menadžere i tehničku podršku (koristi se na kontrolnoj tabli)
 router.get('/live', authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT), analyticsController.getLiveStatus);
 
-// Ostale analitičke rute su samo za administratore
-router.use(authorize(Role.ADMINISTRATOR));
+// Analitičke rute za administratore i tehničku podršku
+router.use(authorize(Role.ADMINISTRATOR, Role.TECHNICAL_SUPPORT));
 router.get('/dashboard', analyticsController.getDashboardStats);
 router.get('/workers', analyticsController.getWorkerPerformance);
 router.get('/trends', analyticsController.getTrends);

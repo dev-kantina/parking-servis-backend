@@ -10,10 +10,10 @@ const router: IRouter = Router();
 // Svi zahtjevi moraju biti autentifikovani
 router.use(authenticate);
 
-// GET /api/users/workers - Lista aktivnih radnika (za dropdown)
+// GET /api/users/workers - Lista aktivnih radnika (za dropdown, svi korisnici)
 router.get(
   '/workers',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.WORKER),
   userController.getWorkers.bind(userController)
 );
 

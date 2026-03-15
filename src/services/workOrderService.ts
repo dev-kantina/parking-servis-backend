@@ -46,9 +46,11 @@ export interface WorkOrderFilters {
   search?: string;
   scheduledDateBefore?: Date;
   scheduledDateAfter?: Date;
+  scheduledDate?: string; // exact day filter (YYYY-MM-DD)
   deadlineBefore?: Date;
   deadlineAfter?: Date;
   workOrderType?: 'all' | 'standard' | 'regular';
+  shiftId?: string;
 }
 
 export interface PaginationOptions {
@@ -132,6 +134,43 @@ export class WorkOrderService {
 
     if (filters.deadlineAfter) {
       where.deadline = { ...where.deadline, gte: filters.deadlineAfter };
+    }
+
+    // Exact day filter - filters work orders active on a specific day
+    if (filters.scheduledDate) {
+      const dayStart = new Date(filters.scheduledDate + 'T00:00:00.000Z');
+      const dayEnd = new Date(filters.scheduledDate + 'T23:59:59.999Z');
+      where.AND = [
+        ...(where.AND || []),
+        { createdAt: { lte: dayEnd } },
+        {
+          OR: [
+            { completedAt: null },
+            { completedAt: { gte: dayStart } },
+          ],
+        },
+      ];
+    }
+
+    // Shift filter - find workers on a specific shift and filter by them
+    if (filters.shiftId) {
+      const targetDate = filters.scheduledDate || formatBusinessDate(new Date());
+      const scheduleEntries = await prisma.scheduleEntry.findMany({
+        where: {
+          shiftId: filters.shiftId,
+          date: new Date(targetDate),
+        },
+        select: { userId: true },
+      });
+      const workerIds = scheduleEntries.map((e) => e.userId);
+      if (workerIds.length > 0) {
+        where.assignedToId = filters.assignedToId
+          ? { in: workerIds.includes(filters.assignedToId) ? [filters.assignedToId] : [] }
+          : { in: workerIds };
+      } else {
+        // No workers on this shift - return empty results
+        where.assignedToId = { in: [] };
+      }
     }
 
     if (filters.workOrderType === 'standard') {
@@ -523,6 +562,7 @@ export class WorkOrderService {
       },
     });
 
+    // Notify the creator if they didn't make the change
     if (updatedWorkOrder.createdById && updatedWorkOrder.createdById !== userId) {
       await notificationService.create({
         userId: updatedWorkOrder.createdById,
@@ -536,6 +576,36 @@ export class WorkOrderService {
           newStatus: newStatus,
           note: note,
         },
+      });
+    }
+
+    // Notify all TECHNICAL_SUPPORT users (except the one who made the change and the creator who was already notified)
+    const technicalSupportUsers = await prisma.user.findMany({
+      where: {
+        role: Role.TECHNICAL_SUPPORT,
+        isActive: true,
+        id: {
+          notIn: [userId, updatedWorkOrder.createdById].filter(Boolean) as string[],
+        },
+      },
+      select: { id: true },
+    });
+
+    for (const tsUser of technicalSupportUsers) {
+      notificationService.create({
+        userId: tsUser.id,
+        type: 'STATUS_CHANGE',
+        title: 'Promjena statusa',
+        message: `Status naloga "${updatedWorkOrder.title}" je promijenjen u ${STATUS_LABELS[newStatus]}.`,
+        workOrderId: updatedWorkOrder.id,
+        sentById: userId,
+        emailData: {
+          oldStatus: workOrder.status,
+          newStatus: newStatus,
+          note: note,
+        },
+      }).catch((err) => {
+        console.error('[WORK_ORDER] Failed to notify technical support user:', tsUser.id, err);
       });
     }
 
@@ -847,6 +917,21 @@ export class WorkOrderService {
           },
           orderBy: { createdAt: 'desc' },
         },
+        comments: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        attachments: {
+          orderBy: { uploadedAt: 'desc' },
+        },
       },
       orderBy: [{ priority: 'desc' }, { deadline: 'asc' }],
     });
@@ -878,6 +963,19 @@ export class WorkOrderService {
         worker: wo.assignedTo
           ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
           : null,
+        comments: wo.comments.map((c) => ({
+          id: c.id,
+          content: c.content,
+          createdAt: c.createdAt,
+          user: c.user ? { id: c.user.id, name: `${c.user.firstName} ${c.user.lastName}` } : null,
+        })),
+        attachments: wo.attachments.map((a) => ({
+          id: a.id,
+          fileName: a.fileName,
+          fileUrl: a.fileUrl,
+          fileType: a.fileType,
+          uploadedAt: a.uploadedAt,
+        })),
       })),
       completedToday: completedToday.map((wo) => ({
         id: wo.id,
@@ -889,6 +987,19 @@ export class WorkOrderService {
         worker: wo.assignedTo
           ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
           : null,
+        comments: wo.comments.map((c) => ({
+          id: c.id,
+          content: c.content,
+          createdAt: c.createdAt,
+          user: c.user ? { id: c.user.id, name: `${c.user.firstName} ${c.user.lastName}` } : null,
+        })),
+        attachments: wo.attachments.map((a) => ({
+          id: a.id,
+          fileName: a.fileName,
+          fileUrl: a.fileUrl,
+          fileType: a.fileType,
+          uploadedAt: a.uploadedAt,
+        })),
       })),
       createdToday: createdToday.map((wo) => ({
         id: wo.id,
@@ -900,6 +1011,19 @@ export class WorkOrderService {
         worker: wo.assignedTo
           ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
           : null,
+        comments: wo.comments.map((c) => ({
+          id: c.id,
+          content: c.content,
+          createdAt: c.createdAt,
+          user: c.user ? { id: c.user.id, name: `${c.user.firstName} ${c.user.lastName}` } : null,
+        })),
+        attachments: wo.attachments.map((a) => ({
+          id: a.id,
+          fileName: a.fileName,
+          fileUrl: a.fileUrl,
+          fileType: a.fileType,
+          uploadedAt: a.uploadedAt,
+        })),
       })),
       activeOnDay: activeOnDay.length,
       statusChangesToday: workOrders

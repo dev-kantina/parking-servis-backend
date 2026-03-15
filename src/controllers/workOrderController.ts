@@ -16,9 +16,11 @@ export class WorkOrderController {
         search,
         scheduledDateBefore,
         scheduledDateAfter,
+        scheduledDate,
         deadlineBefore,
         deadlineAfter,
         workOrderType,
+        shiftId,
       } = req.query;
 
       const filters: WorkOrderFilters = {};
@@ -57,6 +59,14 @@ export class WorkOrderController {
 
       if (workOrderType && ['standard', 'regular'].includes(workOrderType as string)) {
         filters.workOrderType = workOrderType as 'standard' | 'regular';
+      }
+
+      if (scheduledDate) {
+        filters.scheduledDate = scheduledDate as string;
+      }
+
+      if (shiftId) {
+        filters.shiftId = shiftId as string;
       }
 
       const result = await workOrderService.getAll(filters, {
