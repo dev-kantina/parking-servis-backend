@@ -122,13 +122,19 @@ export const analyticsService = {
         id: true,
         firstName: true,
         lastName: true,
-        assignedWorkOrders: {
-          where,
+        workOrderAssignments: {
+          where: {
+            workOrder: where,
+          },
           select: {
-            status: true,
-            completedAt: true,
-            createdAt: true,
-            deadline: true,
+            workOrder: {
+              select: {
+                status: true,
+                completedAt: true,
+                createdAt: true,
+                deadline: true,
+              },
+            },
           },
         },
       },
@@ -136,10 +142,11 @@ export const analyticsService = {
 
     return workers
       .map((worker: any) => {
-        const completedOrders = worker.assignedWorkOrders.filter(
+        const assignedOrders = worker.workOrderAssignments.map((a: any) => a.workOrder)
+        const completedOrders = assignedOrders.filter(
           (wo: any) => wo.status === WorkOrderStatus.COMPLETED
         )
-        const totalAssigned = worker.assignedWorkOrders.length
+        const totalAssigned = assignedOrders.length
 
         // Calculate average completion time (in hours)
         const completionTimes = completedOrders
@@ -248,12 +255,16 @@ export const analyticsService = {
         priority: true,
         deadline: true,
         updatedAt: true,
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+              },
+            },
           },
         },
       },
@@ -287,11 +298,15 @@ export const analyticsService = {
         status: true,
         location: true,
         deadline: true,
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
@@ -319,11 +334,15 @@ export const analyticsService = {
         status: true,
         location: true,
         deadline: true,
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
@@ -347,14 +366,20 @@ export const analyticsService = {
             firstName: true,
             lastName: true,
             phone: true,
-            assignedWorkOrders: {
+            workOrderAssignments: {
               where: {
-                status: WorkOrderStatus.IN_PROGRESS,
-                ...woTypeFilter,
+                workOrder: {
+                  status: WorkOrderStatus.IN_PROGRESS,
+                  ...woTypeFilter,
+                },
               },
               select: {
-                id: true,
-                title: true,
+                workOrder: {
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
               },
             },
           },
@@ -384,10 +409,14 @@ export const analyticsService = {
           select: {
             id: true,
             title: true,
-            assignedTo: {
-              select: {
-                firstName: true,
-                lastName: true,
+            assignments: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
               },
             },
           },
@@ -439,6 +468,12 @@ export const analyticsService = {
 
     const todayCreated = todayStats.reduce((sum, s) => sum + s._count.status, 0)
 
+    const mapWorkers = (assignments: any[]) =>
+      assignments.map((a: any) => ({
+        id: a.user.id,
+        name: `${a.user.firstName} ${a.user.lastName}`,
+      }))
+
     return {
       summary: {
         new: statusCounts.NEW,
@@ -467,13 +502,11 @@ export const analyticsService = {
         priority: order.priority,
         deadline: order.deadline,
         lastUpdated: order.updatedAt,
-        worker: order.assignedTo
-          ? {
-              id: order.assignedTo.id,
-              name: `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
-              phone: order.assignedTo.phone,
-            }
-          : null,
+        workers: order.assignments.map(a => ({
+          id: a.user.id,
+          name: `${a.user.firstName} ${a.user.lastName}`,
+          phone: a.user.phone,
+        })),
       })),
       urgentOrders: urgentOrders.map((order) => ({
         id: order.id,
@@ -482,12 +515,7 @@ export const analyticsService = {
         status: order.status,
         location: order.location,
         deadline: order.deadline,
-        worker: order.assignedTo
-          ? {
-              id: order.assignedTo.id,
-              name: `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
-            }
-          : null,
+        workers: mapWorkers(order.assignments),
       })),
       overdueOrders: overdueOrders.map((order) => ({
         id: order.id,
@@ -496,12 +524,7 @@ export const analyticsService = {
         status: order.status,
         location: order.location,
         deadline: order.deadline,
-        worker: order.assignedTo
-          ? {
-              id: order.assignedTo.id,
-              name: `${order.assignedTo.firstName} ${order.assignedTo.lastName}`,
-            }
-          : null,
+        workers: mapWorkers(order.assignments),
       })),
       workersOnDuty: Array.from(
         workersOnDuty
@@ -523,7 +546,7 @@ export const analyticsService = {
               phone: entry.user.phone,
               shifts: [entry.shift],
               shiftKeys: new Set([shiftKey]),
-              currentTasks: entry.user.assignedWorkOrders,
+              currentTasks: entry.user.workOrderAssignments.map((a: any) => a.workOrder),
             })
             return map
           }, new Map())
@@ -538,8 +561,8 @@ export const analyticsService = {
           id: activity.workOrder.id,
           title: activity.workOrder.title,
         },
-        worker: activity.workOrder.assignedTo
-          ? `${activity.workOrder.assignedTo.firstName} ${activity.workOrder.assignedTo.lastName}`
+        worker: activity.workOrder.assignments.length > 0
+          ? activity.workOrder.assignments.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
           : null,
       })),
       timestamp: now.toISOString(),

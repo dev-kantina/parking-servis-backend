@@ -7,7 +7,11 @@ export const exportService = {
     const workOrders = await prisma.workOrder.findMany({
       include: {
         createdBy: { select: { firstName: true, lastName: true } },
-        assignedTo: { select: { firstName: true, lastName: true } },
+        assignments: {
+          include: {
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -26,6 +30,10 @@ export const exportService = {
     ]
 
     workOrders.forEach((wo) => {
+      const assignedNames = wo.assignments.length > 0
+        ? wo.assignments.map(a => `${a.user.firstName} ${a.user.lastName}`).join('; ')
+        : 'N/A'
+
       csvRows.push(
         [
           wo.id,
@@ -35,9 +43,7 @@ export const exportService = {
           wo.createdBy
             ? `${wo.createdBy.firstName} ${wo.createdBy.lastName}`
             : 'N/A',
-          wo.assignedTo
-            ? `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}`
-            : 'N/A',
+          `"${assignedNames}"`,
           wo.createdAt.toISOString(),
           wo.deadline?.toISOString() ?? '',
         ].join(',')

@@ -116,10 +116,13 @@ router.post(
       .isISO8601()
       .withMessage('Nevažeći format datuma'),
     body('resources').optional().isString(),
-    body('assignedToId')
+    body('assignedToIds')
       .optional()
+      .isArray()
+      .withMessage('assignedToIds mora biti niz'),
+    body('assignedToIds.*')
       .isUUID()
-      .withMessage('ID dodijeljenog korisnika mora biti validan UUID'),
+      .withMessage('Svaki ID dodijeljenog korisnika mora biti validan UUID'),
     validate,
   ],
   workOrderController.create.bind(workOrderController),
@@ -155,10 +158,13 @@ router.put(
       .optional()
       .isISO8601()
       .withMessage('Nevažeći format datuma'),
-    body('assignedToId')
-      .optional({ nullable: true })
+    body('assignedToIds')
+      .optional()
+      .isArray()
+      .withMessage('assignedToIds mora biti niz'),
+    body('assignedToIds.*')
       .isUUID()
-      .withMessage('ID dodijeljenog korisnika mora biti validan UUID'),
+      .withMessage('Svaki ID dodijeljenog korisnika mora biti validan UUID'),
     validate,
   ],
   workOrderController.update.bind(workOrderController),

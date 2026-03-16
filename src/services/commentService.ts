@@ -40,6 +40,9 @@ export class CommentService {
   async create(data: CreateCommentDto) {
     const workOrder = await prisma.workOrder.findUnique({
       where: { id: data.workOrderId },
+      include: {
+        assignments: { select: { userId: true } },
+      },
     });
 
     if (!workOrder) {
@@ -68,7 +71,7 @@ export class CommentService {
 
     // Notify participants
     const participants = new Set<string>();
-    if (workOrder.assignedToId) participants.add(workOrder.assignedToId);
+    workOrder.assignments.forEach(a => participants.add(a.userId));
     if (workOrder.createdById) participants.add(workOrder.createdById);
     
     participants.delete(data.userId); // Don't notify self

@@ -65,16 +65,16 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  createdWorkOrders  WorkOrder[]     @relation("CreatedBy")
-  assignedWorkOrders WorkOrder[]     @relation("AssignedTo")
-  comments           Comment[]
-  notifications      Notification[]
-  sentNotifications  Notification[]  @relation("SentBy")
-  weeklySchedules    EmployeeSchedule[]  // Weekly template
-  scheduleEntries    ScheduleEntry[]     // Actual date-specific entries
-  createdStandards   Standard[]      @relation("StandardCreatedBy")
-  assignedStandards  Standard[]      @relation("StandardDefaultAssignedTo")
-  pushSubscriptions  PushSubscription[]
+  createdWorkOrders    WorkOrder[]     @relation("CreatedBy")
+  workOrderAssignments WorkOrderAssignment[] @relation("WorkOrderAssignments")
+  comments             Comment[]
+  notifications        Notification[]
+  sentNotifications    Notification[]  @relation("SentBy")
+  weeklySchedules      EmployeeSchedule[]  // Weekly template
+  scheduleEntries      ScheduleEntry[]     // Actual date-specific entries
+  createdStandards     Standard[]      @relation("StandardCreatedBy")
+  assignedStandards    Standard[]      @relation("StandardDefaultAssignedTo")
+  pushSubscriptions    PushSubscription[]
 
   @@map("users")
 }
@@ -95,9 +95,6 @@ model WorkOrder {
   createdById String
   createdBy   User                @relation("CreatedBy", fields: [createdById], references: [id])
 
-  assignedToId String?
-  assignedTo   User?               @relation("AssignedTo", fields: [assignedToId], references: [id])
-
   standardId  String?
   standard    Standard?           @relation(fields: [standardId], references: [id], onDelete: SetNull)
 
@@ -106,6 +103,7 @@ model WorkOrder {
   completedAt DateTime?
 
   // Relations
+  assignments       WorkOrderAssignment[]
   statusHistory     WorkOrderStatusHistory[]
   attachments       Attachment[]
   comments          Comment[]
@@ -114,12 +112,25 @@ model WorkOrder {
 
   @@index([status])
   @@index([priority])
-  @@index([assignedToId])
   @@index([createdById])
   @@index([scheduledDate])
   @@index([deadline])
   @@index([standardId])
   @@map("work_orders")
+}
+
+model WorkOrderAssignment {
+  id          String    @id @default(uuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation("WorkOrderAssignments", fields: [userId], references: [id])
+  assignedAt  DateTime  @default(now())
+
+  @@unique([workOrderId, userId])
+  @@index([workOrderId])
+  @@index([userId])
+  @@map("work_order_assignments")
 }
 
 model WorkOrderStatusHistory {

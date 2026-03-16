@@ -108,11 +108,15 @@ export class StandardService {
           orderBy: { scheduledDate: 'desc' },
           take: 20,
           include: {
-            assignedTo: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
+            assignments: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
               },
             },
           },
@@ -356,7 +360,7 @@ export class StandardService {
           scheduledDate,
           deadline,
           createdById,
-          assignedToId: standard.defaultAssignedToId,
+          defaultAssignedToId: standard.defaultAssignedToId,
           standardId: standard.id,
         });
       }
@@ -372,9 +376,10 @@ export class StandardService {
     const result = await prisma.$transaction(async (tx) => {
       const created = [];
       for (const wo of workOrdersToCreate) {
+        const { defaultAssignedToId, ...woData } = wo;
         const workOrder = await tx.workOrder.create({
           data: {
-            ...wo,
+            ...woData,
             statusHistory: {
               create: {
                 oldStatus: null,
@@ -382,6 +387,11 @@ export class StandardService {
                 note: 'Radni nalog generisan iz standarda',
               },
             },
+            ...(defaultAssignedToId && {
+              assignments: {
+                create: { userId: defaultAssignedToId },
+              },
+            }),
           },
         });
         created.push(workOrder);

@@ -20,7 +20,7 @@ export interface CreateWorkOrderDto {
   scheduledDate?: Date;
   deadline?: Date;
   resources?: string;
-  assignedToId?: string;
+  assignedToIds?: string[];
   equipment?: WorkOrderEquipmentInput[];
 }
 
@@ -34,7 +34,7 @@ export interface UpdateWorkOrderDto {
   scheduledDate?: Date;
   deadline?: Date;
   resources?: string;
-  assignedToId?: string | null;
+  assignedToIds?: string[];
   equipment?: WorkOrderEquipmentInput[];
 }
 
@@ -57,6 +57,21 @@ export interface PaginationOptions {
   page: number;
   limit: number;
 }
+
+const assignmentsInclude = {
+  assignments: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+    },
+  },
+};
 
 // Definisanje validnih prelaza statusa za radnike
 const WORKER_STATUS_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
@@ -105,7 +120,7 @@ export class WorkOrderService {
     }
 
     if (filters.assignedToId) {
-      where.assignedToId = filters.assignedToId;
+      where.assignments = { some: { userId: filters.assignedToId } };
     }
 
     if (filters.createdById) {
@@ -164,12 +179,19 @@ export class WorkOrderService {
       });
       const workerIds = scheduleEntries.map((e) => e.userId);
       if (workerIds.length > 0) {
-        where.assignedToId = filters.assignedToId
-          ? { in: workerIds.includes(filters.assignedToId) ? [filters.assignedToId] : [] }
-          : { in: workerIds };
+        if (filters.assignedToId) {
+          // Already filtered by assignedToId via assignments.some, intersect with shift workers
+          where.assignments = {
+            some: {
+              userId: { in: workerIds.includes(filters.assignedToId) ? [filters.assignedToId] : [] },
+            },
+          };
+        } else {
+          where.assignments = { some: { userId: { in: workerIds } } };
+        }
       } else {
         // No workers on this shift - return empty results
-        where.assignedToId = { in: [] };
+        where.assignments = { some: { userId: { in: [] } } };
       }
     }
 
@@ -198,14 +220,7 @@ export class WorkOrderService {
               email: true,
             },
           },
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
+          ...assignmentsInclude,
         },
       }),
       prisma.workOrder.count({ where }),
@@ -234,14 +249,7 @@ export class WorkOrderService {
             email: true,
           },
         },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
+        ...assignmentsInclude,
         statusHistory: {
           orderBy: { createdAt: 'desc' },
         },
@@ -280,18 +288,19 @@ export class WorkOrderService {
   }
 
   async create(data: CreateWorkOrderDto, createdById: string) {
-    // Provjera da li dodijeljeni korisnik postoji i da li je radnik
-    if (data.assignedToId) {
-      const assignedUser = await prisma.user.findUnique({
-        where: { id: data.assignedToId },
+    // Validate assigned users
+    if (data.assignedToIds && data.assignedToIds.length > 0) {
+      const assignedUsers = await prisma.user.findMany({
+        where: { id: { in: data.assignedToIds } },
       });
 
-      if (!assignedUser) {
-        throw ApiError.badRequest('Dodijeljeni korisnik nije pronađen');
+      if (assignedUsers.length !== data.assignedToIds.length) {
+        throw ApiError.badRequest('Neki od dodijeljenih korisnika nisu pronađeni');
       }
 
-      if (!assignedUser.isActive) {
-        throw ApiError.badRequest('Dodijeljeni korisnik nije aktivan');
+      const inactiveUser = assignedUsers.find(u => !u.isActive);
+      if (inactiveUser) {
+        throw ApiError.badRequest(`Korisnik ${inactiveUser.firstName} ${inactiveUser.lastName} nije aktivan`);
       }
     }
 
@@ -322,7 +331,6 @@ export class WorkOrderService {
         deadline: data.deadline ? new Date(data.deadline) : undefined,
         resources: data.resources,
         createdById,
-        assignedToId: data.assignedToId,
         statusHistory: {
           create: {
             oldStatus: null,
@@ -330,6 +338,11 @@ export class WorkOrderService {
             note: 'Radni nalog kreiran',
           },
         },
+        ...(data.assignedToIds && data.assignedToIds.length > 0 && {
+          assignments: {
+            create: data.assignedToIds.map(userId => ({ userId })),
+          },
+        }),
         ...(data.equipment && data.equipment.length > 0 && {
           requiredEquipment: {
             create: data.equipment.map((e) => ({
@@ -348,14 +361,7 @@ export class WorkOrderService {
             email: true,
           },
         },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
+        ...assignmentsInclude,
         requiredEquipment: {
           include: {
             equipment: {
@@ -368,15 +374,18 @@ export class WorkOrderService {
       },
     });
 
-    if (data.assignedToId) {
-      await notificationService.create({
-        userId: data.assignedToId,
-        type: 'NEW_ASSIGNMENT',
-        title: 'Novi radni nalog',
-        message: `Dodijeljen vam je novi radni nalog: ${workOrder.title}`,
-        workOrderId: workOrder.id,
-        sentById: createdById,
-      });
+    // Send notifications to all assigned users
+    if (data.assignedToIds && data.assignedToIds.length > 0) {
+      for (const assignedUserId of data.assignedToIds) {
+        await notificationService.create({
+          userId: assignedUserId,
+          type: 'NEW_ASSIGNMENT',
+          title: 'Novi radni nalog',
+          message: `Dodijeljen vam je novi radni nalog: ${workOrder.title}`,
+          workOrderId: workOrder.id,
+          sentById: createdById,
+        });
+      }
     }
 
     return workOrder;
@@ -385,14 +394,19 @@ export class WorkOrderService {
   async update(id: string, data: UpdateWorkOrderDto, userId: string, userRole: Role) {
     const currentWorkOrder = await prisma.workOrder.findUnique({
       where: { id },
+      include: {
+        assignments: { select: { userId: true } },
+      },
     });
 
     if (!currentWorkOrder) {
       throw ApiError.notFound('Radni nalog nije pronađen');
     }
 
+    const currentAssignedIds = currentWorkOrder.assignments.map(a => a.userId);
+
     // Radnik može ažurirati samo naloge koji su mu dodijeljeni
-    if (userRole === Role.WORKER && currentWorkOrder.assignedToId !== userId) {
+    if (userRole === Role.WORKER && !currentAssignedIds.includes(userId)) {
       throw ApiError.forbidden('Nemate dozvolu za uređivanje ovog naloga');
     }
 
@@ -401,18 +415,19 @@ export class WorkOrderService {
       throw ApiError.badRequest('Završeni, otkazani ili odbijeni nalozi se ne mogu uređivati');
     }
 
-    // Provjera novog dodijeljenog korisnika
-    if (data.assignedToId) {
-      const assignedUser = await prisma.user.findUnique({
-        where: { id: data.assignedToId },
+    // Validate new assigned users
+    if (data.assignedToIds && data.assignedToIds.length > 0) {
+      const assignedUsers = await prisma.user.findMany({
+        where: { id: { in: data.assignedToIds } },
       });
 
-      if (!assignedUser) {
-        throw ApiError.badRequest('Dodijeljeni korisnik nije pronađen');
+      if (assignedUsers.length !== data.assignedToIds.length) {
+        throw ApiError.badRequest('Neki od dodijeljenih korisnika nisu pronađeni');
       }
 
-      if (!assignedUser.isActive) {
-        throw ApiError.badRequest('Dodijeljeni korisnik nije aktivan');
+      const inactiveUser = assignedUsers.find(u => !u.isActive);
+      if (inactiveUser) {
+        throw ApiError.badRequest(`Korisnik ${inactiveUser.firstName} ${inactiveUser.lastName} nije aktivan`);
       }
     }
 
@@ -438,6 +453,13 @@ export class WorkOrderService {
       });
     }
 
+    // Handle assignments update with delete-and-recreate pattern
+    if (data.assignedToIds !== undefined) {
+      await prisma.workOrderAssignment.deleteMany({
+        where: { workOrderId: id },
+      });
+    }
+
     const updatedWorkOrder = await prisma.workOrder.update({
       where: { id },
       data: {
@@ -450,7 +472,11 @@ export class WorkOrderService {
         ...(data.scheduledDate !== undefined && { scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null }),
         ...(data.deadline && { deadline: new Date(data.deadline) }),
         ...(data.resources !== undefined && { resources: data.resources }),
-        ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId }),
+        ...(data.assignedToIds !== undefined && data.assignedToIds.length > 0 && {
+          assignments: {
+            create: data.assignedToIds.map(uid => ({ userId: uid })),
+          },
+        }),
         ...(data.equipment !== undefined && data.equipment.length > 0 && {
           requiredEquipment: {
             create: data.equipment.map((e) => ({
@@ -469,14 +495,7 @@ export class WorkOrderService {
             email: true,
           },
         },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
+        ...assignmentsInclude,
         requiredEquipment: {
           include: {
             equipment: {
@@ -489,15 +508,19 @@ export class WorkOrderService {
       },
     });
 
-    if (data.assignedToId && data.assignedToId !== currentWorkOrder.assignedToId) {
-      await notificationService.create({
-        userId: data.assignedToId,
-        type: 'NEW_ASSIGNMENT',
-        title: 'Novi radni nalog',
-        message: `Dodijeljen vam je novi radni nalog: ${updatedWorkOrder.title}`,
-        workOrderId: updatedWorkOrder.id,
-        sentById: userId,
-      });
+    // Notify only newly added users
+    if (data.assignedToIds) {
+      const newlyAssigned = data.assignedToIds.filter(uid => !currentAssignedIds.includes(uid));
+      for (const newUserId of newlyAssigned) {
+        await notificationService.create({
+          userId: newUserId,
+          type: 'NEW_ASSIGNMENT',
+          title: 'Novi radni nalog',
+          message: `Dodijeljen vam je novi radni nalog: ${updatedWorkOrder.title}`,
+          workOrderId: updatedWorkOrder.id,
+          sentById: userId,
+        });
+      }
     }
 
     return updatedWorkOrder;
@@ -506,6 +529,9 @@ export class WorkOrderService {
   async updateStatus(id: string, newStatus: WorkOrderStatus, userId: string, userRole: Role, note?: string) {
     const workOrder = await prisma.workOrder.findUnique({
       where: { id },
+      include: {
+        assignments: { select: { userId: true } },
+      },
     });
 
     if (!workOrder) {
@@ -513,7 +539,8 @@ export class WorkOrderService {
     }
 
     // Radnik može mijenjati status samo naloga koji su mu dodijeljeni
-    if (userRole === Role.WORKER && workOrder.assignedToId !== userId) {
+    const assignedUserIds = workOrder.assignments.map(a => a.userId);
+    if (userRole === Role.WORKER && !assignedUserIds.includes(userId)) {
       throw ApiError.forbidden('Nemate dozvolu za promjenu statusa ovog naloga');
     }
 
@@ -547,14 +574,7 @@ export class WorkOrderService {
             email: true,
           },
         },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
+        ...assignmentsInclude,
         statusHistory: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -661,13 +681,7 @@ export class WorkOrderService {
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
+          ...assignmentsInclude,
         },
       }),
     ]);
@@ -713,16 +727,10 @@ export class WorkOrderService {
         ? [{ standardId: null }]
         : [];
 
-    // Get all work orders that overlap with this month
-    // A work order overlaps if:
-    // - Created before month end AND (not completed OR completed after month start)
-    // - OR deadline is within the month
     const workOrders = await prisma.workOrder.findMany({
       where: {
         AND: [
-          // Work order was created before or during this month
           { createdAt: { lte: monthEnd } },
-          // Either not completed, or completed during/after this month starts
           {
             OR: [
               { completedAt: null },
@@ -730,7 +738,7 @@ export class WorkOrderService {
             ],
           },
           // Optional worker filter
-          ...(workerId ? [{ assignedToId: workerId }] : []),
+          ...(workerId ? [{ assignments: { some: { userId: workerId } } }] : []),
           // Optional work order type filter
           ...workOrderTypeFilter,
         ],
@@ -744,11 +752,15 @@ export class WorkOrderService {
         createdAt: true,
         deadline: true,
         completedAt: true,
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
@@ -782,17 +794,14 @@ export class WorkOrderService {
       const deadlineDate = wo.deadline ? formatBusinessDate(wo.deadline) : null;
       const completedDate = wo.completedAt ? formatBusinessDate(wo.completedAt) : null;
 
-      // Count deadline
       if (deadlineDate && dailySummary[deadlineDate]) {
         dailySummary[deadlineDate].deadlines++;
       }
 
-      // Count completion
       if (completedDate && dailySummary[completedDate]) {
         dailySummary[completedDate].completed++;
       }
 
-      // For each day the work order was active
       const orderStartDate = formatBusinessDate(
         new Date(Math.max(wo.createdAt.getTime(), monthStart.getTime()))
       );
@@ -811,7 +820,6 @@ export class WorkOrderService {
             dailySummary[dateKey].inProgress++;
           }
 
-          // Check if overdue on this day
           if (!wo.completedAt && deadlineDate && dateKey > deadlineDate) {
             dailySummary[dateKey].overdue++;
           }
@@ -836,12 +844,10 @@ export class WorkOrderService {
         completedAt: wo.completedAt?.toISOString() || null,
         isOverdue,
         isCompletedLate,
-        worker: wo.assignedTo
-          ? {
-              id: wo.assignedTo.id,
-              name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}`,
-            }
-          : null,
+        workers: wo.assignments.map(a => ({
+          id: a.user.id,
+          name: `${a.user.firstName} ${a.user.lastName}`,
+        })),
       };
     });
 
@@ -888,17 +894,21 @@ export class WorkOrderService {
               { completedAt: { gte: dayStart } },
             ],
           },
-          ...(workerId ? [{ assignedToId: workerId }] : []),
+          ...(workerId ? [{ assignments: { some: { userId: workerId } } }] : []),
           ...workOrderTypeFilter,
         ],
       },
       include: {
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+              },
+            },
           },
         },
         createdBy: {
@@ -936,6 +946,29 @@ export class WorkOrderService {
       orderBy: [{ priority: 'desc' }, { deadline: 'asc' }],
     });
 
+    const mapWorkers = (wo: typeof workOrders[0]) =>
+      wo.assignments.map(a => ({
+        id: a.user.id,
+        name: `${a.user.firstName} ${a.user.lastName}`,
+      }));
+
+    const mapComments = (wo: typeof workOrders[0]) =>
+      wo.comments.map((c) => ({
+        id: c.id,
+        content: c.content,
+        createdAt: c.createdAt,
+        user: c.user ? { id: c.user.id, name: `${c.user.firstName} ${c.user.lastName}` } : null,
+      }));
+
+    const mapAttachments = (wo: typeof workOrders[0]) =>
+      wo.attachments.map((a) => ({
+        id: a.id,
+        fileName: a.fileName,
+        fileUrl: a.fileUrl,
+        fileType: a.fileType,
+        uploadedAt: a.uploadedAt,
+      }));
+
     // Categorize orders
     const deadlinesToday = workOrders.filter(
       (wo) => wo.deadline && wo.deadline >= dayStart && wo.deadline <= dayEnd
@@ -960,22 +993,9 @@ export class WorkOrderService {
         status: wo.status,
         deadline: wo.deadline,
         isOverdue: !wo.completedAt && wo.deadline && new Date() > wo.deadline,
-        worker: wo.assignedTo
-          ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
-          : null,
-        comments: wo.comments.map((c) => ({
-          id: c.id,
-          content: c.content,
-          createdAt: c.createdAt,
-          user: c.user ? { id: c.user.id, name: `${c.user.firstName} ${c.user.lastName}` } : null,
-        })),
-        attachments: wo.attachments.map((a) => ({
-          id: a.id,
-          fileName: a.fileName,
-          fileUrl: a.fileUrl,
-          fileType: a.fileType,
-          uploadedAt: a.uploadedAt,
-        })),
+        workers: mapWorkers(wo),
+        comments: mapComments(wo),
+        attachments: mapAttachments(wo),
       })),
       completedToday: completedToday.map((wo) => ({
         id: wo.id,
@@ -984,22 +1004,9 @@ export class WorkOrderService {
         priority: wo.priority,
         completedAt: wo.completedAt,
         wasLate: wo.completedAt && wo.deadline && wo.completedAt > wo.deadline,
-        worker: wo.assignedTo
-          ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
-          : null,
-        comments: wo.comments.map((c) => ({
-          id: c.id,
-          content: c.content,
-          createdAt: c.createdAt,
-          user: c.user ? { id: c.user.id, name: `${c.user.firstName} ${c.user.lastName}` } : null,
-        })),
-        attachments: wo.attachments.map((a) => ({
-          id: a.id,
-          fileName: a.fileName,
-          fileUrl: a.fileUrl,
-          fileType: a.fileType,
-          uploadedAt: a.uploadedAt,
-        })),
+        workers: mapWorkers(wo),
+        comments: mapComments(wo),
+        attachments: mapAttachments(wo),
       })),
       createdToday: createdToday.map((wo) => ({
         id: wo.id,
@@ -1008,22 +1015,9 @@ export class WorkOrderService {
         priority: wo.priority,
         status: wo.status,
         deadline: wo.deadline,
-        worker: wo.assignedTo
-          ? { id: wo.assignedTo.id, name: `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` }
-          : null,
-        comments: wo.comments.map((c) => ({
-          id: c.id,
-          content: c.content,
-          createdAt: c.createdAt,
-          user: c.user ? { id: c.user.id, name: `${c.user.firstName} ${c.user.lastName}` } : null,
-        })),
-        attachments: wo.attachments.map((a) => ({
-          id: a.id,
-          fileName: a.fileName,
-          fileUrl: a.fileUrl,
-          fileType: a.fileType,
-          uploadedAt: a.uploadedAt,
-        })),
+        workers: mapWorkers(wo),
+        comments: mapComments(wo),
+        attachments: mapAttachments(wo),
       })),
       activeOnDay: activeOnDay.length,
       statusChangesToday: workOrders

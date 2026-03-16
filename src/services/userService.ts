@@ -215,7 +215,7 @@ export class UserService {
         email: true,
         _count: {
           select: {
-            assignedWorkOrders: true,
+            workOrderAssignments: true,
           },
         },
       },
@@ -229,7 +229,7 @@ export class UserService {
       firstName: w.firstName,
       lastName: w.lastName,
       email: w.email,
-      assignedOrdersCount: w._count.assignedWorkOrders,
+      assignedOrdersCount: w._count.workOrderAssignments,
     }))
   }
 
