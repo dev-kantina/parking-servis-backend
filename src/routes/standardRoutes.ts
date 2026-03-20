@@ -79,7 +79,7 @@ router.post(
     body('recurrenceType')
       .notEmpty()
       .withMessage('Tip ponavljanja je obavezan')
-      .isIn(['DAILY', 'WEEKLY'])
+      .isIn(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY'])
       .withMessage('Tip ponavljanja mora biti DAILY ili WEEKLY'),
     body('daysOfWeek')
       .optional()
@@ -125,7 +125,7 @@ router.put(
       .withMessage('Prioritet mora biti LOW, MEDIUM, HIGH ili URGENT'),
     body('recurrenceType')
       .optional()
-      .isIn(['DAILY', 'WEEKLY'])
+      .isIn(['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY'])
       .withMessage('Tip ponavljanja mora biti DAILY ili WEEKLY'),
     body('startTime')
       .optional()
@@ -140,10 +140,10 @@ router.put(
   standardController.update.bind(standardController),
 )
 
-// DELETE /api/standards/:id - Delete standard (admin only)
+// DELETE /api/standards/:id - Delete standard
 router.delete(
   '/:id',
-  authorize(Role.ADMINISTRATOR),
+  authorize(Role.ADMINISTRATOR, Role.TECHNICAL_SUPPORT),
   [param('id').isUUID().withMessage('ID mora biti validan UUID'), validate],
   standardController.delete.bind(standardController),
 )

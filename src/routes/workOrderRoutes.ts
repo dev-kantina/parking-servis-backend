@@ -192,10 +192,10 @@ router.patch(
   workOrderController.updateStatus.bind(workOrderController),
 )
 
-// DELETE /api/work-orders/:id - Brisanje naloga (samo administrator)
+// DELETE /api/work-orders/:id - Brisanje naloga
 router.delete(
   '/:id',
-  authorize(Role.ADMINISTRATOR),
+  authorize(Role.ADMINISTRATOR, Role.TECHNICAL_SUPPORT),
   [param('id').isUUID().withMessage('ID mora biti validan UUID'), validate],
   workOrderController.delete.bind(workOrderController),
 )

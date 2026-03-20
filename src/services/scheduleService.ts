@@ -273,7 +273,11 @@ export class ScheduleService {
         email: true,
         weeklySchedules: {
           include: {
-            shift: true,
+            shift: {
+              include: {
+                intervals: { orderBy: { sortOrder: 'asc' } },
+              },
+            },
           },
         },
       },
@@ -284,7 +288,7 @@ export class ScheduleService {
 
     // Transform to matrix format
     return workers.map(worker => {
-      const scheduleMap: Record<DayOfWeek, { shiftId: string; shiftName: string; startTime: string; endTime: string } | null> = {
+      const scheduleMap: Record<DayOfWeek, { shiftId: string; shiftName: string; startTime: string; endTime: string; intervals?: { startTime: string; endTime: string }[] } | null> = {
         MONDAY: null,
         TUESDAY: null,
         WEDNESDAY: null,
@@ -300,6 +304,12 @@ export class ScheduleService {
           shiftName: schedule.shift.name,
           startTime: schedule.shift.startTime,
           endTime: schedule.shift.endTime,
+          ...((schedule.shift as any).intervals?.length > 0 && {
+            intervals: (schedule.shift as any).intervals.map((i: any) => ({
+              startTime: i.startTime,
+              endTime: i.endTime,
+            })),
+          }),
         };
       }
 
@@ -470,7 +480,11 @@ export class ScheduleService {
       include: {
         weeklySchedules: {
           include: {
-            shift: true,
+            shift: {
+              include: {
+                intervals: { orderBy: { sortOrder: 'asc' } },
+              },
+            },
           },
         },
       },
@@ -552,7 +566,11 @@ export class ScheduleService {
         },
       },
       include: {
-        shift: true,
+        shift: {
+          include: {
+            intervals: { orderBy: { sortOrder: 'asc' } },
+          },
+        },
       },
     });
 
@@ -566,7 +584,7 @@ export class ScheduleService {
 
     // Build calendar matrix
     const calendar = workers.map(worker => {
-      const schedule: Record<string, { shiftId: string; shiftName: string; startTime: string; endTime: string; note?: string } | null> = {};
+      const schedule: Record<string, { shiftId: string; shiftName: string; startTime: string; endTime: string; intervals?: { startTime: string; endTime: string }[]; note?: string } | null> = {};
 
       for (const date of dates) {
         const entry = entries.find(
@@ -579,6 +597,12 @@ export class ScheduleService {
             shiftName: entry.shift.name,
             startTime: entry.shift.startTime,
             endTime: entry.shift.endTime,
+            ...((entry.shift as any).intervals?.length > 0 && {
+              intervals: (entry.shift as any).intervals.map((i: any) => ({
+                startTime: i.startTime,
+                endTime: i.endTime,
+              })),
+            }),
             note: entry.note || undefined,
           };
         } else {
@@ -613,12 +637,20 @@ export class ScheduleService {
     const getShiftForDate = async (dateStr: string, dayOfWeek: DayOfWeek) => {
       const dateObj = parseDate(dateStr);
 
+      const shiftInclude = {
+        shift: {
+          include: {
+            intervals: { orderBy: { sortOrder: 'asc' as const } },
+          },
+        },
+      };
+
       // Check date-specific entry first
       const entry = await prisma.scheduleEntry.findUnique({
         where: {
           userId_date: { userId, date: dateObj },
         },
-        include: { shift: true },
+        include: shiftInclude,
       });
 
       if (entry) {
@@ -626,6 +658,10 @@ export class ScheduleService {
           shiftName: entry.shift.name,
           startTime: entry.shift.startTime,
           endTime: entry.shift.endTime,
+          intervals: entry.shift.intervals.map(i => ({
+            startTime: i.startTime,
+            endTime: i.endTime,
+          })),
         };
       }
 
@@ -634,7 +670,7 @@ export class ScheduleService {
         where: {
           userId_dayOfWeek: { userId, dayOfWeek },
         },
-        include: { shift: true },
+        include: shiftInclude,
       });
 
       if (weekly) {
@@ -642,6 +678,10 @@ export class ScheduleService {
           shiftName: weekly.shift.name,
           startTime: weekly.shift.startTime,
           endTime: weekly.shift.endTime,
+          intervals: weekly.shift.intervals.map(i => ({
+            startTime: i.startTime,
+            endTime: i.endTime,
+          })),
         };
       }
 
@@ -691,6 +731,10 @@ export class ScheduleService {
             name: true,
             startTime: true,
             endTime: true,
+            intervals: {
+              select: { startTime: true, endTime: true },
+              orderBy: { sortOrder: 'asc' },
+            },
           },
         },
       },

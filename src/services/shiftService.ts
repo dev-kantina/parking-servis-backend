@@ -1,10 +1,16 @@
 import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
 
-export interface CreateShiftDto {
-  name: string;
+export interface ShiftIntervalInput {
   startTime: string; // Format: "HH:MM"
   endTime: string; // Format: "HH:MM"
+}
+
+export interface CreateShiftDto {
+  name: string;
+  startTime: string; // Format: "HH:MM" - primary interval
+  endTime: string; // Format: "HH:MM" - primary interval
+  intervals?: ShiftIntervalInput[]; // Additional intervals
 }
 
 export interface UpdateShiftDto {
@@ -12,7 +18,14 @@ export interface UpdateShiftDto {
   startTime?: string;
   endTime?: string;
   isActive?: boolean;
+  intervals?: ShiftIntervalInput[]; // Replace all additional intervals
 }
+
+const shiftInclude = {
+  intervals: {
+    orderBy: { sortOrder: 'asc' as const },
+  },
+};
 
 export class ShiftService {
   async getAll(includeInactive = false) {
@@ -20,6 +33,7 @@ export class ShiftService {
 
     const shifts = await prisma.shift.findMany({
       where,
+      include: shiftInclude,
       orderBy: { startTime: 'asc' },
     });
 
@@ -29,6 +43,7 @@ export class ShiftService {
   async getById(id: string) {
     const shift = await prisma.shift.findUnique({
       where: { id },
+      include: shiftInclude,
     });
 
     if (!shift) {
@@ -53,12 +68,31 @@ export class ShiftService {
       throw ApiError.badRequest('Nevažeći format vremena. Koristite format HH:MM');
     }
 
+    // Validate additional intervals
+    if (data.intervals) {
+      for (const interval of data.intervals) {
+        if (!this.isValidTimeFormat(interval.startTime) || !this.isValidTimeFormat(interval.endTime)) {
+          throw ApiError.badRequest('Nevažeći format vremena u intervalu. Koristite format HH:MM');
+        }
+      }
+    }
+
     const shift = await prisma.shift.create({
       data: {
         name: data.name,
         startTime: data.startTime,
         endTime: data.endTime,
+        ...(data.intervals && data.intervals.length > 0 && {
+          intervals: {
+            create: data.intervals.map((interval, index) => ({
+              startTime: interval.startTime,
+              endTime: interval.endTime,
+              sortOrder: index,
+            })),
+          },
+        }),
       },
+      include: shiftInclude,
     });
 
     return shift;
@@ -93,9 +127,39 @@ export class ShiftService {
       throw ApiError.badRequest('Nevažeći format završnog vremena. Koristite format HH:MM');
     }
 
+    // Validate additional intervals
+    if (data.intervals) {
+      for (const interval of data.intervals) {
+        if (!this.isValidTimeFormat(interval.startTime) || !this.isValidTimeFormat(interval.endTime)) {
+          throw ApiError.badRequest('Nevažeći format vremena u intervalu. Koristite format HH:MM');
+        }
+      }
+    }
+
+    // If intervals are being updated, delete existing and create new
+    if (data.intervals !== undefined) {
+      await prisma.shiftInterval.deleteMany({
+        where: { shiftId: id },
+      });
+    }
+
+    const { intervals, ...shiftData } = data;
+
     const shift = await prisma.shift.update({
       where: { id },
-      data,
+      data: {
+        ...shiftData,
+        ...(intervals && intervals.length > 0 && {
+          intervals: {
+            create: intervals.map((interval, index) => ({
+              startTime: interval.startTime,
+              endTime: interval.endTime,
+              sortOrder: index,
+            })),
+          },
+        }),
+      },
+      include: shiftInclude,
     });
 
     return shift;
@@ -135,6 +199,7 @@ export class ShiftService {
     const updatedShift = await prisma.shift.update({
       where: { id },
       data: { isActive },
+      include: shiftInclude,
     });
 
     return updatedShift;

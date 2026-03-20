@@ -48,6 +48,16 @@ router.post(
       .withMessage('Završno vrijeme je obavezno')
       .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
       .withMessage('Završno vrijeme mora biti u formatu HH:MM'),
+    body('intervals')
+      .optional()
+      .isArray()
+      .withMessage('Intervali moraju biti niz'),
+    body('intervals.*.startTime')
+      .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .withMessage('Početno vrijeme intervala mora biti u formatu HH:MM'),
+    body('intervals.*.endTime')
+      .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .withMessage('Završno vrijeme intervala mora biti u formatu HH:MM'),
     validate,
   ],
   shiftController.create.bind(shiftController)
@@ -75,6 +85,18 @@ router.put(
       .optional()
       .isBoolean()
       .withMessage('isActive mora biti boolean'),
+    body('intervals')
+      .optional()
+      .isArray()
+      .withMessage('Intervali moraju biti niz'),
+    body('intervals.*.startTime')
+      .optional()
+      .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .withMessage('Početno vrijeme intervala mora biti u formatu HH:MM'),
+    body('intervals.*.endTime')
+      .optional()
+      .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .withMessage('Završno vrijeme intervala mora biti u formatu HH:MM'),
     validate,
   ],
   shiftController.update.bind(shiftController)

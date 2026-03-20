@@ -213,16 +213,29 @@ model Notification {
 model Shift {
   id        String   @id @default(uuid())
   name      String   @unique
-  startTime String   // Format: "HH:MM" (24-hour)
-  endTime   String   // Format: "HH:MM" (24-hour)
+  startTime String   // Format: "HH:MM" (24-hour) - primary interval start
+  endTime   String   // Format: "HH:MM" (24-hour) - primary interval end
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  intervals        ShiftInterval[]     // Additional time intervals
   weeklySchedules  EmployeeSchedule[]  // Weekly template entries
   scheduleEntries  ScheduleEntry[]     // Actual date-specific entries
 
   @@map("shifts")
+}
+
+model ShiftInterval {
+  id        String @id @default(uuid())
+  shiftId   String
+  shift     Shift  @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  startTime String // Format: "HH:MM" (24-hour)
+  endTime   String // Format: "HH:MM" (24-hour)
+  sortOrder Int    @default(0)
+
+  @@index([shiftId])
+  @@map("shift_intervals")
 }
 
 // Weekly schedule template - defines recurring weekly patterns
