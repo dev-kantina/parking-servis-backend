@@ -19,6 +19,6 @@ export const errorHandler = (
 
   res.status(500).json({
     success: false,
-    error: 'Internal server error',
+    error: 'Došlo je do greške na serveru',
   });
 };

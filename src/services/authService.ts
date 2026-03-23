@@ -11,7 +11,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw ApiError.badRequest('User with this email already exists');
+      throw ApiError.badRequest('Korisnik sa ovom email adresom već postoji');
     }
 
     const hashedPassword = await hashPassword(data.password);
@@ -56,17 +56,17 @@ export class AuthService {
     });
 
     if (!user) {
-      throw ApiError.unauthorized('Invalid credentials');
+      throw ApiError.unauthorized('Pogrešan email ili lozinka');
     }
 
     if (!user.isActive) {
-      throw ApiError.forbidden('Account is inactive');
+      throw ApiError.forbidden('Nalog je deaktiviran');
     }
 
     const isPasswordValid = await comparePassword(data.password, user.password);
 
     if (!isPasswordValid) {
-      throw ApiError.unauthorized('Invalid credentials');
+      throw ApiError.unauthorized('Pogrešan email ili lozinka');
     }
 
     const payload = { id: user.id, email: user.email, role: user.role };
@@ -107,7 +107,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw ApiError.notFound('User not found');
+      throw ApiError.notFound('Korisnik nije pronađen');
     }
 
     return user;
@@ -124,7 +124,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw ApiError.notFound('User not found');
+      throw ApiError.notFound('Korisnik nije pronađen');
     }
 
     // Verify current password
@@ -174,11 +174,11 @@ export class AuthService {
       });
 
       if (!user) {
-        throw ApiError.unauthorized('User not found');
+        throw ApiError.unauthorized('Korisnik nije pronađen');
       }
 
       if (!user.isActive) {
-        throw ApiError.forbidden('Account is inactive');
+        throw ApiError.forbidden('Nalog je deaktiviran');
       }
 
       // Generate new tokens
@@ -197,7 +197,7 @@ export class AuthService {
         throw error;
       }
       // JWT verification failed (expired or invalid)
-      throw ApiError.unauthorized('Invalid or expired refresh token');
+      throw ApiError.unauthorized('Nevažeći ili istekli token');
     }
   }
 }

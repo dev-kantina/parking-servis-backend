@@ -13,13 +13,13 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw ApiError.unauthorized('No token provided');
+      throw ApiError.unauthorized('Token nije proslijeđen');
     }
 
     const token = authHeader.split(' ')[1];
 
     if (!token) {
-      throw ApiError.unauthorized('Invalid token format');
+      throw ApiError.unauthorized('Nevažeći format tokena');
     }
 
     const decoded = verifyAccessToken(token);
@@ -30,7 +30,7 @@ export const authenticate = async (
     if (error instanceof ApiError) {
       next(error);
     } else {
-      next(ApiError.unauthorized('Invalid or expired token'));
+      next(ApiError.unauthorized('Nevažeći ili istekli token'));
     }
   }
 };
@@ -38,12 +38,12 @@ export const authenticate = async (
 export const authorize = (...roles: Role[]) => {
   return (req: AuthRequest, _res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return next(ApiError.unauthorized('User not authenticated'));
+      return next(ApiError.unauthorized('Korisnik nije autentifikovan'));
     }
 
     if (!roles.includes(req.user.role)) {
       return next(
-        ApiError.forbidden('You do not have permission to access this resource')
+        ApiError.forbidden('Nemate dozvolu za pristup ovom resursu')
       );
     }
 
