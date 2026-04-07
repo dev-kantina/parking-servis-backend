@@ -153,8 +153,7 @@ export class WorkOrderService {
 
     // Exact day filter - filters work orders active on a specific day
     if (filters.scheduledDate) {
-      const dayStart = new Date(filters.scheduledDate + 'T00:00:00.000Z');
-      const dayEnd = new Date(filters.scheduledDate + 'T23:59:59.999Z');
+      const { start: dayStart, end: dayEnd } = getBusinessDayBounds(filters.scheduledDate);
       where.AND = [
         ...(where.AND || []),
         { createdAt: { lte: dayEnd } },

@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import { RecurrenceType, WorkOrderPriority, WorkOrderStatus, DayOfWeek } from '../../generated/prisma';
-import { toBusinessUTC, formatBusinessDate } from '../utils/timezone';
+import { toBusinessUTC, formatBusinessDate, getBusinessDayBounds } from '../utils/timezone';
 
 export interface CreateStandardDto {
   title: string;
@@ -279,12 +279,14 @@ export class StandardService {
     }
 
     // Get existing work orders for deduplication
+    const { start: dedupStart } = getBusinessDayBounds(data.startDate);
+    const { end: dedupEnd } = getBusinessDayBounds(data.endDate);
     const existingWorkOrders = await prisma.workOrder.findMany({
       where: {
         standardId: { in: standards.map(s => s.id) },
         scheduledDate: {
-          gte: start,
-          lte: new Date(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59)),
+          gte: dedupStart,
+          lte: dedupEnd,
         },
       },
       select: {
