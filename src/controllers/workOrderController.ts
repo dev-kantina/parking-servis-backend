@@ -3,6 +3,7 @@ import { AuthRequest } from '../types';
 import workOrderService, { CreateWorkOrderDto, UpdateWorkOrderDto, WorkOrderFilters } from '../services/workOrderService';
 import { ApiResponse } from '../types';
 import { WorkOrderStatus, WorkOrderPriority } from '../../generated/prisma';
+import { getBusinessDayBounds } from '../utils/timezone';
 
 export class WorkOrderController {
   async getAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -42,19 +43,23 @@ export class WorkOrderController {
       }
 
       if (scheduledDateBefore) {
-        filters.scheduledDateBefore = new Date(scheduledDateBefore as string);
+        const { end } = getBusinessDayBounds(scheduledDateBefore as string);
+        filters.scheduledDateBefore = end;
       }
 
       if (scheduledDateAfter) {
-        filters.scheduledDateAfter = new Date(scheduledDateAfter as string);
+        const { start } = getBusinessDayBounds(scheduledDateAfter as string);
+        filters.scheduledDateAfter = start;
       }
 
       if (deadlineBefore) {
-        filters.deadlineBefore = new Date(deadlineBefore as string);
+        const { end } = getBusinessDayBounds(deadlineBefore as string);
+        filters.deadlineBefore = end;
       }
 
       if (deadlineAfter) {
-        filters.deadlineAfter = new Date(deadlineAfter as string);
+        const { start } = getBusinessDayBounds(deadlineAfter as string);
+        filters.deadlineAfter = start;
       }
 
       if (workOrderType && ['standard', 'regular'].includes(workOrderType as string)) {
