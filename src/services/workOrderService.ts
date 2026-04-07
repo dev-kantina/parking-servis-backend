@@ -662,6 +662,42 @@ export class WorkOrderService {
       where.priority = filters.priority;
     }
 
+    if (filters.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { location: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (filters.scheduledDateBefore) {
+      where.scheduledDate = { ...where.scheduledDate, lte: filters.scheduledDateBefore };
+    }
+
+    if (filters.scheduledDateAfter) {
+      where.scheduledDate = { ...where.scheduledDate, gte: filters.scheduledDateAfter };
+    }
+
+    if (filters.scheduledDate) {
+      const { start: dayStart, end: dayEnd } = getBusinessDayBounds(filters.scheduledDate);
+      where.AND = [
+        ...(where.AND || []),
+        { createdAt: { lte: dayEnd } },
+        {
+          OR: [
+            { completedAt: null },
+            { completedAt: { gte: dayStart } },
+          ],
+        },
+      ];
+    }
+
+    if (filters.workOrderType === 'standard') {
+      where.standardId = { not: null };
+    } else if (filters.workOrderType === 'regular') {
+      where.standardId = null;
+    }
+
     const [workOrders, total] = await Promise.all([
       prisma.workOrder.findMany({
         where,

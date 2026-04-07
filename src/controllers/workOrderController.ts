@@ -96,7 +96,17 @@ export class WorkOrderController {
         throw new Error('Korisnik nije autentifikovan');
       }
 
-      const { page = '1', limit = '10', status, priority } = req.query;
+      const {
+        page = '1',
+        limit = '10',
+        status,
+        priority,
+        scheduledDate,
+        scheduledDateBefore,
+        scheduledDateAfter,
+        search,
+        workOrderType,
+      } = req.query;
 
       const filters: WorkOrderFilters = {};
 
@@ -106,6 +116,28 @@ export class WorkOrderController {
 
       if (priority && Object.values(WorkOrderPriority).includes(priority as WorkOrderPriority)) {
         filters.priority = priority as WorkOrderPriority;
+      }
+
+      if (scheduledDate) {
+        filters.scheduledDate = scheduledDate as string;
+      }
+
+      if (scheduledDateBefore) {
+        const { end } = getBusinessDayBounds(scheduledDateBefore as string);
+        filters.scheduledDateBefore = end;
+      }
+
+      if (scheduledDateAfter) {
+        const { start } = getBusinessDayBounds(scheduledDateAfter as string);
+        filters.scheduledDateAfter = start;
+      }
+
+      if (search) {
+        filters.search = search as string;
+      }
+
+      if (workOrderType && ['standard', 'regular'].includes(workOrderType as string)) {
+        filters.workOrderType = workOrderType as 'standard' | 'regular';
       }
 
       const result = await workOrderService.getMyOrders(req.user.id, filters, {
