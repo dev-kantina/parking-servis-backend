@@ -205,7 +205,10 @@ export class WorkOrderService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+          { scheduledDate: { sort: 'desc', nulls: 'last' } },
+          { createdAt: 'desc' },
+        ],
         include: {
           createdBy: {
             select: {
