@@ -648,7 +648,56 @@ export class WorkOrderService {
   }
 
   async getMyOrders(userId: string, filters: WorkOrderFilters = {}, pagination: PaginationOptions = { page: 1, limit: 10 }) {
-    return this.getAll({ ...filters, assignedToId: userId }, pagination);
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      assignments: { some: { userId } },
+    };
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.priority) {
+      where.priority = filters.priority;
+    }
+
+    const [workOrders, total] = await Promise.all([
+      prisma.workOrder.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [
+          { completedAt: { sort: 'asc', nulls: 'first' } },
+          { priority: 'desc' },
+          { deadline: 'asc' },
+          { createdAt: 'desc' },
+        ],
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          ...assignmentsInclude,
+        },
+      }),
+      prisma.workOrder.count({ where }),
+    ]);
+
+    return {
+      data: workOrders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getStats() {
