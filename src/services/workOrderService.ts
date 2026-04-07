@@ -205,11 +205,7 @@ export class WorkOrderService {
         where,
         skip,
         take: limit,
-        orderBy: [
-          { priority: 'desc' }, // Hitni nalozi prvo
-          { deadline: 'asc' }, // Bliži rokovi prije
-          { createdAt: 'desc' },
-        ],
+        orderBy: { createdAt: 'desc' },
         include: {
           createdBy: {
             select: {
