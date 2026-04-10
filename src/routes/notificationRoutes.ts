@@ -11,6 +11,9 @@ router.use(authenticate);
 // Get notifications
 router.get('/', notificationController.getNotifications.bind(notificationController));
 
+// Paginated notifications (cursor-based) - for dashboard infinite scroll
+router.get('/paginated', notificationController.getPaginatedNotifications.bind(notificationController));
+
 // Mark all as read
 router.patch('/read-all', notificationController.markAllAsRead.bind(notificationController));
 

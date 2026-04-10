@@ -134,6 +134,43 @@ export class NotificationService {
     })
   }
 
+  async getPaginatedUserNotifications(
+    userId: string,
+    options: { cursor?: string; limit?: number; unreadOnly?: boolean } = {},
+  ) {
+    const { cursor, unreadOnly } = options
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100)
+
+    const whereClause: any = { userId }
+    if (unreadOnly) {
+      whereClause.isRead = false
+    }
+
+    const notifications = await prisma.notification.findMany({
+      where: whereClause,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor && {
+        cursor: { id: cursor },
+        skip: 1,
+      }),
+      include: {
+        sentBy: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+    })
+
+    const hasMore = notifications.length > limit
+    const page = hasMore ? notifications.slice(0, limit) : notifications
+    const nextCursor = hasMore ? page[page.length - 1].id : null
+
+    return {
+      notifications: page,
+      nextCursor,
+    }
+  }
+
   async getUnreadCount(userId: string) {
     return prisma.notification.count({
       where: {

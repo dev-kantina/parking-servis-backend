@@ -2,13 +2,56 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { ApiResponse } from '../types';
 import standardService, { CreateStandardDto, UpdateStandardDto, GenerateWorkOrdersDto } from '../services/standardService';
+import { RecurrenceType, WorkOrderPriority } from '../../generated/prisma';
 
 export class StandardController {
   async getAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { active } = req.query;
+      const {
+        active,
+        groupId,
+        search,
+        assignedToId,
+        recurrenceType,
+        priority,
+      } = req.query;
+
       const onlyActive = active === 'true' ? true : active === 'false' ? false : undefined;
-      const standards = await standardService.getAll(onlyActive);
+
+      let groupFilter: string | null | undefined;
+      if (groupId === 'null') {
+        groupFilter = null;
+      } else if (typeof groupId === 'string' && groupId) {
+        groupFilter = groupId;
+      }
+
+      let assignedFilter: string | null | undefined;
+      if (assignedToId === 'null') {
+        assignedFilter = null;
+      } else if (typeof assignedToId === 'string' && assignedToId) {
+        assignedFilter = assignedToId;
+      }
+
+      const recurrenceFilter =
+        typeof recurrenceType === 'string' &&
+        Object.values(RecurrenceType).includes(recurrenceType as RecurrenceType)
+          ? (recurrenceType as RecurrenceType)
+          : undefined;
+
+      const priorityFilter =
+        typeof priority === 'string' &&
+        Object.values(WorkOrderPriority).includes(priority as WorkOrderPriority)
+          ? (priority as WorkOrderPriority)
+          : undefined;
+
+      const standards = await standardService.getAll({
+        onlyActive,
+        groupId: groupFilter,
+        defaultAssignedToId: assignedFilter,
+        recurrenceType: recurrenceFilter,
+        priority: priorityFilter,
+        search: typeof search === 'string' && search ? search : undefined,
+      });
 
       const response: ApiResponse = {
         success: true,

@@ -15,6 +15,7 @@ export interface CreateStandardDto {
   startTime: string;
   endTime: string;
   defaultAssignedToId?: string;
+  groupId?: string;
 }
 
 export interface UpdateStandardDto {
@@ -30,6 +31,16 @@ export interface UpdateStandardDto {
   endTime?: string;
   isActive?: boolean;
   defaultAssignedToId?: string | null;
+  groupId?: string | null;
+}
+
+export interface StandardFilters {
+  onlyActive?: boolean;
+  groupId?: string | null;
+  search?: string;
+  defaultAssignedToId?: string | null;
+  recurrenceType?: RecurrenceType;
+  priority?: WorkOrderPriority;
 }
 
 export interface GenerateWorkOrdersDto {
@@ -49,10 +60,33 @@ const DAY_INDEX_MAP: Record<number, DayOfWeek> = {
 };
 
 export class StandardService {
-  async getAll(onlyActive?: boolean) {
+  async getAll(filters: StandardFilters = {}) {
     const where: any = {};
-    if (onlyActive !== undefined) {
-      where.isActive = onlyActive;
+    if (filters.onlyActive !== undefined) {
+      where.isActive = filters.onlyActive;
+    }
+    if (filters.groupId === null) {
+      where.groupId = null;
+    } else if (filters.groupId) {
+      where.groupId = filters.groupId;
+    }
+    if (filters.defaultAssignedToId === null) {
+      where.defaultAssignedToId = null;
+    } else if (filters.defaultAssignedToId) {
+      where.defaultAssignedToId = filters.defaultAssignedToId;
+    }
+    if (filters.recurrenceType) {
+      where.recurrenceType = filters.recurrenceType;
+    }
+    if (filters.priority) {
+      where.priority = filters.priority;
+    }
+    if (filters.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { location: { contains: filters.search, mode: 'insensitive' } },
+      ];
     }
 
     const standards = await prisma.standard.findMany({
@@ -72,6 +106,12 @@ export class StandardService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         _count: {
@@ -102,6 +142,12 @@ export class StandardService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         workOrders: {
@@ -147,6 +193,15 @@ export class StandardService {
       }
     }
 
+    if (data.groupId) {
+      const group = await prisma.standardGroup.findUnique({
+        where: { id: data.groupId },
+      });
+      if (!group) {
+        throw ApiError.badRequest('Grupa standarda nije pronađena');
+      }
+    }
+
     const standard = await prisma.standard.create({
       data: {
         title: data.title,
@@ -161,6 +216,7 @@ export class StandardService {
         endTime: data.endTime,
         createdById,
         defaultAssignedToId: data.defaultAssignedToId,
+        groupId: data.groupId,
       },
       include: {
         createdBy: {
@@ -177,6 +233,12 @@ export class StandardService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -203,6 +265,15 @@ export class StandardService {
       }
     }
 
+    if (data.groupId) {
+      const group = await prisma.standardGroup.findUnique({
+        where: { id: data.groupId },
+      });
+      if (!group) {
+        throw ApiError.badRequest('Grupa standarda nije pronađena');
+      }
+    }
+
     const standard = await prisma.standard.update({
       where: { id },
       data: {
@@ -218,6 +289,7 @@ export class StandardService {
         ...(data.endTime !== undefined && { endTime: data.endTime }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.defaultAssignedToId !== undefined && { defaultAssignedToId: data.defaultAssignedToId }),
+        ...(data.groupId !== undefined && { groupId: data.groupId }),
       },
       include: {
         createdBy: {
@@ -234,6 +306,12 @@ export class StandardService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },

@@ -96,9 +96,13 @@ router.post(
       .matches(/^\d{2}:\d{2}$/)
       .withMessage('Vrijeme mora biti u formatu HH:MM'),
     body('defaultAssignedToId')
-      .optional()
+      .optional({ nullable: true })
       .isUUID()
       .withMessage('ID dodijeljenog korisnika mora biti validan UUID'),
+    body('groupId')
+      .optional({ nullable: true })
+      .isUUID()
+      .withMessage('ID grupe mora biti validan UUID'),
     validate,
   ],
   standardController.create.bind(standardController),
@@ -135,6 +139,15 @@ router.put(
       .optional()
       .matches(/^\d{2}:\d{2}$/)
       .withMessage('Vrijeme mora biti u formatu HH:MM'),
+    body('groupId')
+      .optional({ nullable: true })
+      .custom((value) => {
+        if (value === null || value === '') return true
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          value,
+        )
+      })
+      .withMessage('ID grupe mora biti validan UUID ili null'),
     validate,
   ],
   standardController.update.bind(standardController),
