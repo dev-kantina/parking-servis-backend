@@ -47,7 +47,7 @@ export class NotificationService {
     pushSubscriptionService.sendPushToUser(data.userId, {
       title: data.title,
       message: data.message,
-      url: data.workOrderId ? `/work-orders/${data.workOrderId}` : '/pregled',
+      url: data.workOrderId ? `/radni-nalozi/${data.workOrderId}` : '/pregled',
     }).catch((err) => {
       console.error('[NOTIFICATION] Push failed:', err)
     })

@@ -178,9 +178,17 @@ router.patch(
     body('status')
       .notEmpty()
       .withMessage('Status je obavezan')
-      .isIn(['NEW', 'ACCEPTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED'])
+      .isIn([
+        'NEW',
+        'ACCEPTED',
+        'IN_PROGRESS',
+        'ON_HOLD',
+        'COMPLETED',
+        'CANCELLED',
+        'DECLINED',
+      ])
       .withMessage(
-        'Status mora biti NEW, ACCEPTED, IN_PROGRESS, ON_HOLD ili COMPLETED',
+        'Status mora biti NEW, ACCEPTED, IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED ili DECLINED',
       ),
     body('note')
       .optional()
