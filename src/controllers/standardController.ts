@@ -155,6 +155,22 @@ export class StandardController {
       next(error);
     }
   }
+
+  async previewGenerate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data: GenerateWorkOrdersDto = req.body;
+      const occurrences = await standardService.previewGeneration(data);
+
+      const response: ApiResponse = {
+        success: true,
+        data: occurrences,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new StandardController();

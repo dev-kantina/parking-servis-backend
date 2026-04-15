@@ -4,9 +4,12 @@ import { STATUS_LABELS } from '../constants'
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || ''
 const APP_NAME = process.env.APP_NAME || 'Parking servis Herceg Novi'
+const EMAIL_ENABLED = process.env.EMAIL_ENABLED !== 'false'
 
 const resend = new Resend(RESEND_API_KEY)
-console.log('[EMAIL] Service initialized')
+console.log(
+  `[EMAIL] Service initialized (sending ${EMAIL_ENABLED ? 'ENABLED' : 'DISABLED'})`,
+)
 
 export interface SendEmailOptions {
   to: string
@@ -31,6 +34,16 @@ export interface WorkOrderEmailData {
 
 class EmailService {
   async sendEmail(options: SendEmailOptions): Promise<boolean> {
+    if (!EMAIL_ENABLED) {
+      console.log(
+        '[EMAIL] Skipped (EMAIL_ENABLED=false) — to:',
+        options.to,
+        '| subject:',
+        options.subject,
+      )
+      return true
+    }
+
     console.log('[EMAIL] Attempting to send email to:', options.to)
     console.log('[EMAIL] Subject:', options.subject)
 

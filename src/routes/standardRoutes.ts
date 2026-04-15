@@ -35,9 +35,27 @@ router.post(
       .optional()
       .isArray()
       .withMessage('standardIds mora biti niz'),
+    body('overrides').optional().isArray().withMessage('overrides mora biti niz'),
+    body('overrides.*.standardId').optional().isUUID(),
+    body('overrides.*.originalDate').optional().isISO8601(),
+    body('overrides.*.action').optional().isIn(['move', 'skip']),
+    body('overrides.*.newDate').optional().isISO8601(),
     validate,
   ],
   standardController.generate.bind(standardController),
+)
+
+// POST /api/standards/preview-generation - Preview what would be generated (BEFORE /:id)
+router.post(
+  '/preview-generation',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  [
+    body('startDate').notEmpty().isISO8601(),
+    body('endDate').notEmpty().isISO8601(),
+    body('standardIds').optional().isArray(),
+    validate,
+  ],
+  standardController.previewGenerate.bind(standardController),
 )
 
 // GET /api/standards/:id - Get standard details
