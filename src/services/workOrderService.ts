@@ -1116,6 +1116,108 @@ export class WorkOrderService {
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
     };
   }
+  async getActiveByUserAndDate(userId: string, date: string) {
+    const { start: dayStart, end: dayEnd } = getBusinessDayBounds(date);
+
+    const workOrders = await prisma.workOrder.findMany({
+      where: {
+        assignments: { some: { userId } },
+        scheduledDate: { gte: dayStart, lte: dayEnd },
+        status: {
+          in: [
+            WorkOrderStatus.NEW,
+            WorkOrderStatus.ACCEPTED,
+            WorkOrderStatus.IN_PROGRESS,
+            WorkOrderStatus.ON_HOLD,
+          ],
+        },
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        ...assignmentsInclude,
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { deadline: 'asc' },
+      ],
+    });
+
+    return workOrders;
+  }
+
+  async reassignWorkOrders(
+    reassignments: { workOrderId: string; fromUserId: string; toUserId: string }[],
+    performedByUserId: string,
+  ) {
+    const results = [];
+
+    for (const { workOrderId, fromUserId, toUserId } of reassignments) {
+      const workOrder = await prisma.workOrder.findUnique({
+        where: { id: workOrderId },
+        include: {
+          assignments: { select: { userId: true } },
+        },
+      });
+
+      if (!workOrder) {
+        throw ApiError.notFound(`Radni nalog ${workOrderId} nije pronađen`);
+      }
+
+      const isAssigned = workOrder.assignments.some(a => a.userId === fromUserId);
+      if (!isAssigned) {
+        throw ApiError.badRequest(`Korisnik nije dodijeljen radnom nalogu: ${workOrder.title}`);
+      }
+
+      const toUser = await prisma.user.findUnique({ where: { id: toUserId } });
+      if (!toUser || !toUser.isActive) {
+        throw ApiError.badRequest('Ciljni korisnik nije pronađen ili nije aktivan');
+      }
+
+      const alreadyAssigned = workOrder.assignments.some(a => a.userId === toUserId);
+
+      await prisma.$transaction(async (tx) => {
+        await tx.workOrderAssignment.deleteMany({
+          where: { workOrderId, userId: fromUserId },
+        });
+
+        if (!alreadyAssigned) {
+          await tx.workOrderAssignment.create({
+            data: { workOrderId, userId: toUserId },
+          });
+        }
+      });
+
+      await notificationService.create({
+        userId: toUserId,
+        type: 'NEW_ASSIGNMENT',
+        title: 'Preraspoređen radni nalog',
+        message: `Dodijeljen vam je radni nalog: ${workOrder.title}`,
+        workOrderId,
+        sentById: performedByUserId,
+      });
+
+      const updated = await prisma.workOrder.findUnique({
+        where: { id: workOrderId },
+        include: {
+          createdBy: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          ...assignmentsInclude,
+        },
+      });
+
+      results.push(updated);
+    }
+
+    return results;
+  }
 }
 
 export default new WorkOrderService();

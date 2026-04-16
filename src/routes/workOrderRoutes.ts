@@ -54,6 +54,46 @@ router.get(
   workOrderController.getDayDetails.bind(workOrderController),
 )
 
+// GET /api/work-orders/affected-by-absence - Radni nalozi pogođeni odsustvom radnika
+router.get(
+  '/affected-by-absence',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  [
+    query('userId')
+      .notEmpty()
+      .isUUID()
+      .withMessage('ID korisnika mora biti validan UUID'),
+    query('date')
+      .notEmpty()
+      .isISO8601()
+      .withMessage('Datum mora biti u ISO8601 formatu'),
+    validate,
+  ],
+  workOrderController.getAffectedByAbsence.bind(workOrderController),
+)
+
+// POST /api/work-orders/reassign - Preraspodjela radnih naloga
+router.post(
+  '/reassign',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  [
+    body('reassignments')
+      .isArray({ min: 1 })
+      .withMessage('Mora biti najmanje jedna preraspodjela'),
+    body('reassignments.*.workOrderId')
+      .isUUID()
+      .withMessage('ID radnog naloga mora biti validan UUID'),
+    body('reassignments.*.fromUserId')
+      .isUUID()
+      .withMessage('ID izvornog korisnika mora biti validan UUID'),
+    body('reassignments.*.toUserId')
+      .isUUID()
+      .withMessage('ID ciljnog korisnika mora biti validan UUID'),
+    validate,
+  ],
+  workOrderController.reassign.bind(workOrderController),
+)
+
 // GET /api/work-orders/my - Moji nalozi (za radnike)
 router.get('/my', workOrderController.getMyOrders.bind(workOrderController))
 

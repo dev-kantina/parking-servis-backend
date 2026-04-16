@@ -309,6 +309,51 @@ export class WorkOrderController {
     }
   }
 
+  async getAffectedByAbsence(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId, date } = req.query;
+
+      if (!userId || !date) {
+        throw new Error('userId i date su obavezni parametri');
+      }
+
+      const workOrders = await workOrderService.getActiveByUserAndDate(
+        userId as string,
+        date as string,
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: workOrders,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async reassign(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new Error('Korisnik nije autentifikovan');
+      }
+
+      const { reassignments } = req.body;
+      const results = await workOrderService.reassignWorkOrders(reassignments, req.user.id);
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Radni nalozi uspješno preraspoređeni',
+        data: results,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getDayDetails(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { date } = req.params;
