@@ -386,6 +386,31 @@ export class WorkOrderService {
       }
     }
 
+    // Broadcast to monitoring users (ADMINISTRATOR, MANAGER, TECHNICAL_SUPPORT)
+    // except the creator and already-assigned users (who got NEW_ASSIGNMENT above)
+    const excludeIds = [createdById, ...(data.assignedToIds ?? [])].filter(Boolean) as string[];
+    const monitoringUsers = await prisma.user.findMany({
+      where: {
+        role: { in: [Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT] },
+        isActive: true,
+        id: { notIn: excludeIds },
+      },
+      select: { id: true },
+    });
+
+    for (const user of monitoringUsers) {
+      notificationService.create({
+        userId: user.id,
+        type: 'NEW_WORK_ORDER',
+        title: 'Novi radni nalog',
+        message: `Kreiran je novi radni nalog: ${workOrder.title}`,
+        workOrderId: workOrder.id,
+        sentById: createdById,
+      }).catch((err) => {
+        console.error('[WORK_ORDER] Failed to notify monitoring user:', user.id, err);
+      });
+    }
+
     return workOrder;
   }
 
@@ -597,10 +622,11 @@ export class WorkOrderService {
       });
     }
 
-    // Notify all TECHNICAL_SUPPORT users (except the one who made the change and the creator who was already notified)
-    const technicalSupportUsers = await prisma.user.findMany({
+    // Notify all monitoring users (ADMINISTRATOR, MANAGER, TECHNICAL_SUPPORT),
+    // except the one who made the change and the creator who was already notified
+    const monitoringUsers = await prisma.user.findMany({
       where: {
-        role: Role.TECHNICAL_SUPPORT,
+        role: { in: [Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT] },
         isActive: true,
         id: {
           notIn: [userId, updatedWorkOrder.createdById].filter(Boolean) as string[],
@@ -609,9 +635,9 @@ export class WorkOrderService {
       select: { id: true },
     });
 
-    for (const tsUser of technicalSupportUsers) {
+    for (const user of monitoringUsers) {
       notificationService.create({
-        userId: tsUser.id,
+        userId: user.id,
         type: 'STATUS_CHANGE',
         title: 'Promjena statusa',
         message: `Status naloga "${updatedWorkOrder.title}" je promijenjen u ${STATUS_LABELS[newStatus]}.`,
@@ -623,7 +649,7 @@ export class WorkOrderService {
           note: note,
         },
       }).catch((err) => {
-        console.error('[WORK_ORDER] Failed to notify technical support user:', tsUser.id, err);
+        console.error('[WORK_ORDER] Failed to notify monitoring user:', user.id, err);
       });
     }
 

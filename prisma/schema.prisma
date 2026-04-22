@@ -192,7 +192,7 @@ model Notification {
   workOrderId  String?
   workOrder    WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
-  type         String     // NEW_ASSIGNMENT, STATUS_CHANGE, DEADLINE_WARNING, DEADLINE_EXCEEDED
+  type         String     // NEW_ASSIGNMENT, STATUS_CHANGE, NEW_WORK_ORDER, DEADLINE_WARNING, DEADLINE_EXCEEDED
   title        String
   message      String
   isRead       Boolean    @default(false)

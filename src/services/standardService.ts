@@ -1,7 +1,8 @@
 import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
-import { RecurrenceType, WorkOrderPriority, WorkOrderStatus, DayOfWeek } from '../../generated/prisma';
+import { RecurrenceType, WorkOrderPriority, WorkOrderStatus, DayOfWeek, Role } from '../../generated/prisma';
 import { toBusinessUTC, formatBusinessDate, getBusinessDayBounds } from '../utils/timezone';
+import notificationService from './notificationService';
 
 export interface CreateStandardDto {
   title: string;
@@ -548,7 +549,7 @@ export class StandardService {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const created = [];
+      const created: { workOrder: { id: string; title: string }; assignedUserId: string | null }[] = [];
       for (const wo of workOrdersToCreate) {
         const { defaultAssignedToId, ...woData } = wo;
         const workOrder = await tx.workOrder.create({
@@ -568,10 +569,64 @@ export class StandardService {
             }),
           },
         });
-        created.push(workOrder);
+        created.push({
+          workOrder: { id: workOrder.id, title: workOrder.title },
+          assignedUserId: defaultAssignedToId ?? null,
+        });
       }
       return created;
     });
+
+    // Send NEW_ASSIGNMENT notifications to assigned users (matches workOrderService.create behavior)
+    for (const { workOrder, assignedUserId } of result) {
+      if (!assignedUserId) continue;
+      notificationService.create({
+        userId: assignedUserId,
+        type: 'NEW_ASSIGNMENT',
+        title: 'Novi radni nalog',
+        message: `Dodijeljen vam je novi radni nalog: ${workOrder.title}`,
+        workOrderId: workOrder.id,
+        sentById: createdById,
+      }).catch((err) => {
+        console.error('[STANDARD] Failed to notify assigned user:', assignedUserId, err);
+      });
+    }
+
+    // Broadcast to monitoring users (ADMINISTRATOR, MANAGER, TECHNICAL_SUPPORT)
+    // except the generator and already-assigned users
+    const assignedUserIds = new Set(
+      result.map((r) => r.assignedUserId).filter((id): id is string => !!id),
+    );
+    const excludeIds = [createdById, ...Array.from(assignedUserIds)];
+    const monitoringUsers = await prisma.user.findMany({
+      where: {
+        role: { in: [Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT] },
+        isActive: true,
+        id: { notIn: excludeIds },
+      },
+      select: { id: true },
+    });
+
+    if (monitoringUsers.length > 0) {
+      const message =
+        result.length === 1
+          ? `Kreiran je novi radni nalog: ${result[0].workOrder.title}`
+          : `Generisano je ${result.length} novih radnih naloga iz standarda.`;
+      const workOrderId = result.length === 1 ? result[0].workOrder.id : undefined;
+
+      for (const user of monitoringUsers) {
+        notificationService.create({
+          userId: user.id,
+          type: 'NEW_WORK_ORDER',
+          title: result.length === 1 ? 'Novi radni nalog' : 'Generisani radni nalozi',
+          message,
+          workOrderId,
+          sentById: createdById,
+        }).catch((err) => {
+          console.error('[STANDARD] Failed to notify monitoring user:', user.id, err);
+        });
+      }
+    }
 
     return {
       message: `Generisano ${result.length} radnih naloga`,
