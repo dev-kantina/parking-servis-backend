@@ -2,7 +2,7 @@ import prisma from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import notificationService from './notificationService';
 import { WorkOrderStatus, WorkOrderPriority, Role } from '../../generated/prisma';
-import { getBusinessMonthBounds, getBusinessDayBounds, formatBusinessDate, eachDayInRange } from '../utils/timezone';
+import { getBusinessMonthBounds, getBusinessDayBounds, getBusinessToday, formatBusinessDate, eachDayInRange } from '../utils/timezone';
 import { STATUS_LABELS } from '../constants';
 
 export interface WorkOrderEquipmentInput {
@@ -724,31 +724,79 @@ export class WorkOrderService {
       where.standardId = null;
     }
 
-    const [workOrders, total] = await Promise.all([
-      prisma.workOrder.findMany({
+    const { start: todayStart, end: todayEnd } = getBusinessDayBounds(getBusinessToday());
+
+    const todayWhere = {
+      AND: [
         where,
-        skip,
-        take: limit,
-        orderBy: [
-          { completedAt: { sort: 'asc', nulls: 'first' } },
-          { priority: 'desc' },
-          { deadline: 'asc' },
-          { createdAt: 'desc' },
-        ],
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          ...assignmentsInclude,
+        { scheduledDate: { gte: todayStart, lte: todayEnd } },
+      ],
+    };
+
+    const restWhere = {
+      AND: [
+        where,
+        {
+          OR: [
+            { scheduledDate: null },
+            { scheduledDate: { lt: todayStart } },
+            { scheduledDate: { gt: todayEnd } },
+          ],
         },
-      }),
-      prisma.workOrder.count({ where }),
+      ],
+    };
+
+    const myOrdersInclude = {
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      ...assignmentsInclude,
+    };
+
+    const [todayCount, restCount] = await Promise.all([
+      prisma.workOrder.count({ where: todayWhere }),
+      prisma.workOrder.count({ where: restWhere }),
     ]);
+
+    const todaySkip = Math.min(skip, todayCount);
+    const todayTake = Math.max(0, Math.min(limit, todayCount - todaySkip));
+    const restSkip = Math.max(0, skip - todayCount);
+    const restTake = limit - todayTake;
+
+    const [todayOrders, restOrders] = await Promise.all([
+      todayTake > 0
+        ? prisma.workOrder.findMany({
+            where: todayWhere,
+            skip: todaySkip,
+            take: todayTake,
+            orderBy: [
+              { scheduledDate: 'desc' },
+              { createdAt: 'desc' },
+            ],
+            include: myOrdersInclude,
+          })
+        : Promise.resolve([]),
+      restTake > 0
+        ? prisma.workOrder.findMany({
+            where: restWhere,
+            skip: restSkip,
+            take: restTake,
+            orderBy: [
+              { scheduledDate: { sort: 'desc', nulls: 'last' } },
+              { createdAt: 'desc' },
+            ],
+            include: myOrdersInclude,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const workOrders = [...todayOrders, ...restOrders];
+    const total = todayCount + restCount;
 
     return {
       data: workOrders,
