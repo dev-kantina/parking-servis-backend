@@ -548,34 +548,37 @@ export class StandardService {
       return { message: 'Nema novih naloga za generisanje (već postoje ili nema podudaranja)', count: 0 };
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const created: { workOrder: { id: string; title: string }; assignedUserId: string | null }[] = [];
-      for (const wo of workOrdersToCreate) {
-        const { defaultAssignedToId, ...woData } = wo;
-        const workOrder = await tx.workOrder.create({
-          data: {
-            ...woData,
-            statusHistory: {
-              create: {
-                oldStatus: null,
-                newStatus: WorkOrderStatus.NEW,
-                note: 'Radni nalog generisan iz standarda',
+    const result = await prisma.$transaction(
+      async (tx) => {
+        return Promise.all(
+          workOrdersToCreate.map(async (wo) => {
+            const { defaultAssignedToId, ...woData } = wo;
+            const workOrder = await tx.workOrder.create({
+              data: {
+                ...woData,
+                statusHistory: {
+                  create: {
+                    oldStatus: null,
+                    newStatus: WorkOrderStatus.NEW,
+                    note: 'Radni nalog generisan iz standarda',
+                  },
+                },
+                ...(defaultAssignedToId && {
+                  assignments: {
+                    create: { userId: defaultAssignedToId },
+                  },
+                }),
               },
-            },
-            ...(defaultAssignedToId && {
-              assignments: {
-                create: { userId: defaultAssignedToId },
-              },
-            }),
-          },
-        });
-        created.push({
-          workOrder: { id: workOrder.id, title: workOrder.title },
-          assignedUserId: defaultAssignedToId ?? null,
-        });
-      }
-      return created;
-    });
+            });
+            return {
+              workOrder: { id: workOrder.id, title: workOrder.title },
+              assignedUserId: defaultAssignedToId ?? null,
+            };
+          }),
+        );
+      },
+      { timeout: 30_000 },
+    );
 
     // Send NEW_ASSIGNMENT notifications to assigned users (matches workOrderService.create behavior)
     for (const { workOrder, assignedUserId } of result) {
