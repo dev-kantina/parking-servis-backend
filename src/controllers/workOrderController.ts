@@ -74,10 +74,14 @@ export class WorkOrderController {
         filters.shiftId = shiftId as string;
       }
 
-      const result = await workOrderService.getAll(filters, {
-        page: parseInt(page as string, 10),
-        limit: parseInt(limit as string, 10),
-      });
+      const result = await workOrderService.getAll(
+        filters,
+        {
+          page: parseInt(page as string, 10),
+          limit: parseInt(limit as string, 10),
+        },
+        req.user ? { id: req.user.id, role: req.user.role } : undefined,
+      );
 
       const response: ApiResponse = {
         success: true,
@@ -174,7 +178,8 @@ export class WorkOrderController {
   async getById(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const workOrder = await workOrderService.getById(id);
+      const viewer = req.user ? { id: req.user.id, role: req.user.role } : undefined;
+      const workOrder = await workOrderService.getById(id, viewer);
 
       const response: ApiResponse = {
         success: true,

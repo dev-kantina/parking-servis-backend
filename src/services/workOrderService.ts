@@ -105,11 +105,20 @@ const getStatusTransitions = (status: WorkOrderStatus, role: Role): WorkOrderSta
 };
 
 export class WorkOrderService {
-  async getAll(filters: WorkOrderFilters = {}, pagination: PaginationOptions = { page: 1, limit: 10 }) {
+  async getAll(
+    filters: WorkOrderFilters = {},
+    pagination: PaginationOptions = { page: 1, limit: 10 },
+    viewer?: { id: string; role: Role },
+  ) {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    // Call centar vidi samo naloge koje je sam kreirao
+    if (viewer?.role === Role.CALL_CENTER) {
+      where.createdById = viewer.id;
+    }
 
     if (filters.status) {
       where.status = filters.status;
@@ -123,7 +132,7 @@ export class WorkOrderService {
       where.assignments = { some: { userId: filters.assignedToId } };
     }
 
-    if (filters.createdById) {
+    if (filters.createdById && !where.createdById) {
       where.createdById = filters.createdById;
     }
 
@@ -235,7 +244,7 @@ export class WorkOrderService {
     };
   }
 
-  async getById(id: string) {
+  async getById(id: string, viewer?: { id: string; role: Role }) {
     const workOrder = await prisma.workOrder.findUnique({
       where: { id },
       include: {
@@ -280,6 +289,11 @@ export class WorkOrderService {
 
     if (!workOrder) {
       throw ApiError.notFound('Radni nalog nije pronađen');
+    }
+
+    // Call centar može pristupiti samo svojim nalozima
+    if (viewer?.role === Role.CALL_CENTER && workOrder.createdById !== viewer.id) {
+      throw ApiError.forbidden('Nemate dozvolu za pristup ovom radnom nalogu');
     }
 
     return workOrder;

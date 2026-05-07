@@ -126,7 +126,7 @@ router.get(
 // POST /api/work-orders - Kreiranje naloga (samo menadžeri, administratori i tehnička podrška)
 router.post(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   [
     body('title')
       .notEmpty()

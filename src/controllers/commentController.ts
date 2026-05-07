@@ -34,7 +34,7 @@ export class CommentController {
         userId: req.user.id,
         content,
         isInternal,
-      });
+      }, req.user ? { id: req.user.id, role: req.user.role } : undefined);
 
       const response: ApiResponse = {
         success: true,

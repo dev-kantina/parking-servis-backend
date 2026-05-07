@@ -19,21 +19,21 @@ router.get(
 // GET /api/schedules/matrix - Get schedule matrix (all workers with their weekly schedules)
 router.get(
   '/matrix',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   scheduleController.getScheduleMatrix.bind(scheduleController)
 );
 
 // GET /api/schedules - List all schedules
 router.get(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   scheduleController.getAll.bind(scheduleController)
 );
 
 // GET /api/schedules/user/:userId - Get schedules for a specific user
 router.get(
   '/user/:userId',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   [
     param('userId').isUUID().withMessage('ID korisnika mora biti validan UUID'),
     validate,
@@ -119,21 +119,21 @@ router.delete(
 // GET /api/schedules/entries - Get schedule entries by date range
 router.get(
   '/entries',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   scheduleController.getEntriesByDateRange.bind(scheduleController)
 );
 
 // GET /api/schedules/calendar - Get calendar view for a date range
 router.get(
   '/calendar',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   scheduleController.getCalendarView.bind(scheduleController)
 );
 
 // GET /api/schedules/available - Get workers available on a specific date
 router.get(
   '/available',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   scheduleController.getWorkersAvailableOnDate.bind(scheduleController)
 );
 

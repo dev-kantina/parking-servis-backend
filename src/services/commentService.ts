@@ -37,7 +37,7 @@ export class CommentService {
     return comments;
   }
 
-  async create(data: CreateCommentDto) {
+  async create(data: CreateCommentDto, viewer?: { id: string; role: Role }) {
     const workOrder = await prisma.workOrder.findUnique({
       where: { id: data.workOrderId },
       include: {
@@ -47,6 +47,11 @@ export class CommentService {
 
     if (!workOrder) {
       throw ApiError.notFound('Radni nalog nije pronađen');
+    }
+
+    // Call centar može komentarisati samo svoje naloge
+    if (viewer?.role === Role.CALL_CENTER && workOrder.createdById !== viewer.id) {
+      throw ApiError.forbidden('Nemate dozvolu da komentarišete ovaj radni nalog');
     }
 
     const comment = await prisma.comment.create({

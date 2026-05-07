@@ -13,7 +13,7 @@ router.use(authenticate);
 // GET /api/users/workers - Lista aktivnih radnika (za dropdown, svi korisnici)
 router.get(
   '/workers',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.WORKER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER, Role.WORKER),
   userController.getWorkers.bind(userController)
 );
 
