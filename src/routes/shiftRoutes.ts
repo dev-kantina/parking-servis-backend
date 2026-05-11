@@ -13,7 +13,7 @@ router.use(authenticate);
 // GET /api/shifts - List all shifts (svi korisnici za filter)
 router.get(
   '/',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.WORKER),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER, Role.WORKER),
   shiftController.getAll.bind(shiftController)
 );
 

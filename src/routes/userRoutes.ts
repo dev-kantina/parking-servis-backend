@@ -27,7 +27,7 @@ router.get(
 // GET /api/users/workers/available - Radnici koji rade danas (ili na određeni dan)
 router.get(
   '/workers/available',
-  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT),
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.CALL_CENTER),
   userController.getAvailableWorkers.bind(userController)
 );
 

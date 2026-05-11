@@ -447,6 +447,11 @@ export class WorkOrderService {
       throw ApiError.forbidden('Nemate dozvolu za uređivanje ovog naloga');
     }
 
+    // Call centar može ažurirati samo naloge koje je sam kreirao
+    if (userRole === Role.CALL_CENTER && currentWorkOrder.createdById !== userId) {
+      throw ApiError.forbidden('Nemate dozvolu za uređivanje ovog naloga');
+    }
+
     // Završeni, otkazani i odbijeni nalozi se ne mogu uređivati
     if (([WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED, WorkOrderStatus.DECLINED] as WorkOrderStatus[]).includes(currentWorkOrder.status)) {
       throw ApiError.badRequest('Završeni, otkazani ili odbijeni nalozi se ne mogu uređivati');
