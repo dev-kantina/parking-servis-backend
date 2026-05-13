@@ -99,7 +99,7 @@ export class EquipmentService {
     return equipment;
   }
 
-  async update(id: string, data: UpdateEquipmentDto) {
+  async update(id: string, data: UpdateEquipmentDto, userId: string) {
     const existingEquipment = await prisma.equipment.findUnique({
       where: { id },
     });
@@ -123,15 +123,105 @@ export class EquipmentService {
       }
     }
 
-    const equipment = await prisma.equipment.update({
-      where: { id },
-      data,
-      include: {
-        type: true,
-      },
+    const quantityChanged =
+      data.quantity !== undefined && data.quantity !== existingEquipment.quantity;
+
+    const equipment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.equipment.update({
+        where: { id },
+        data,
+        include: {
+          type: true,
+        },
+      });
+
+      if (quantityChanged) {
+        await tx.equipmentQuantityLog.create({
+          data: {
+            equipmentId: id,
+            userId,
+            oldQuantity: existingEquipment.quantity,
+            newQuantity: data.quantity ?? null,
+          },
+        });
+      }
+
+      return updated;
     });
 
     return equipment;
+  }
+
+  async updateQuantity(id: string, quantity: number, userId: string) {
+    const existingEquipment = await prisma.equipment.findUnique({
+      where: { id },
+    });
+
+    if (!existingEquipment) {
+      throw ApiError.notFound('Oprema nije pronađena');
+    }
+
+    if (existingEquipment.quantity === null) {
+      throw ApiError.badRequest(
+        'Ova oprema je pojedinačna i nema količinsko stanje'
+      );
+    }
+
+    if (existingEquipment.quantity === quantity) {
+      return prisma.equipment.findUnique({
+        where: { id },
+        include: { type: true },
+      });
+    }
+
+    const equipment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.equipment.update({
+        where: { id },
+        data: { quantity },
+        include: { type: true },
+      });
+
+      await tx.equipmentQuantityLog.create({
+        data: {
+          equipmentId: id,
+          userId,
+          oldQuantity: existingEquipment.quantity,
+          newQuantity: quantity,
+        },
+      });
+
+      return updated;
+    });
+
+    return equipment;
+  }
+
+  async getQuantityHistory(id: string) {
+    const equipment = await prisma.equipment.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!equipment) {
+      throw ApiError.notFound('Oprema nije pronađena');
+    }
+
+    const logs = await prisma.equipmentQuantityLog.findMany({
+      where: { equipmentId: id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return logs;
   }
 
   async updateStatus(id: string, isActive: boolean) {

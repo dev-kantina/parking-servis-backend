@@ -62,12 +62,46 @@ export class EquipmentController {
     try {
       const { id } = req.params;
       const data: UpdateEquipmentDto = req.body;
-      const equipment = await equipmentService.update(id, data);
+      const equipment = await equipmentService.update(id, data, req.user!.id);
 
       const response: ApiResponse = {
         success: true,
         message: 'Oprema uspješno ažurirana',
         data: equipment,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateQuantity(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { quantity } = req.body;
+      const equipment = await equipmentService.updateQuantity(id, quantity, req.user!.id);
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Količina uspješno ažurirana',
+        data: equipment,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getQuantityHistory(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const logs = await equipmentService.getQuantityHistory(id);
+
+      const response: ApiResponse = {
+        success: true,
+        data: logs,
       };
 
       res.status(200).json(response);

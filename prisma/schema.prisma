@@ -76,6 +76,7 @@ model User {
   createdStandards     Standard[]      @relation("StandardCreatedBy")
   assignedStandards    Standard[]      @relation("StandardDefaultAssignedTo")
   pushSubscriptions    PushSubscription[]
+  equipmentQuantityLogs EquipmentQuantityLog[]
 
   @@map("users")
 }
@@ -301,11 +302,27 @@ model Equipment {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  workOrders  WorkOrderEquipment[]
+  workOrders   WorkOrderEquipment[]
+  quantityLogs EquipmentQuantityLog[]
 
   @@index([typeId])
   @@index([isActive])
   @@map("equipment")
+}
+
+model EquipmentQuantityLog {
+  id           String    @id @default(uuid())
+  equipmentId  String
+  equipment    Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  oldQuantity  Int?
+  newQuantity  Int?
+  createdAt    DateTime  @default(now())
+
+  @@index([equipmentId])
+  @@index([userId])
+  @@map("equipment_quantity_logs")
 }
 
 model WorkOrderEquipment {

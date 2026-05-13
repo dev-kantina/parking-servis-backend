@@ -43,8 +43,8 @@ router.post(
     body('typeId').notEmpty().isUUID().withMessage('Tip opreme je obavezan i mora biti validan UUID'),
     body('quantity')
       .optional()
-      .isInt({ min: 1 })
-      .withMessage('Količina mora biti pozitivan cijeli broj'),
+      .isInt({ min: 0 })
+      .withMessage('Količina ne može biti negativan broj'),
     validate,
   ],
   equipmentController.create.bind(equipmentController)
@@ -67,8 +67,8 @@ router.put(
     body('typeId').optional().isUUID().withMessage('Tip opreme mora biti validan UUID'),
     body('quantity')
       .optional()
-      .isInt({ min: 1 })
-      .withMessage('Količina mora biti pozitivan cijeli broj'),
+      .isInt({ min: 0 })
+      .withMessage('Količina ne može biti negativan broj'),
     body('isActive').optional().isBoolean().withMessage('isActive mora biti boolean'),
     validate,
   ],
@@ -93,6 +93,28 @@ router.patch(
     validate,
   ],
   equipmentController.updateStatus.bind(equipmentController)
+);
+
+// PATCH /api/equipment/:id/quantity - Update quantity only (any authenticated except call center)
+router.patch(
+  '/:id/quantity',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.WORKER),
+  [
+    param('id').isUUID().withMessage('ID mora biti validan UUID'),
+    body('quantity')
+      .isInt({ min: 0 })
+      .withMessage('Količina ne može biti negativan broj'),
+    validate,
+  ],
+  equipmentController.updateQuantity.bind(equipmentController)
+);
+
+// GET /api/equipment/:id/quantity-history - View quantity audit log
+router.get(
+  '/:id/quantity-history',
+  authorize(Role.ADMINISTRATOR, Role.MANAGER, Role.TECHNICAL_SUPPORT, Role.WORKER),
+  [param('id').isUUID().withMessage('ID mora biti validan UUID'), validate],
+  equipmentController.getQuantityHistory.bind(equipmentController)
 );
 
 export default router;
