@@ -67,7 +67,7 @@ export class NotificationService {
     const [user, workOrder] = await Promise.all([
       prisma.user.findUnique({
         where: { id: data.userId },
-        select: { email: true, firstName: true, lastName: true },
+        select: { email: true, firstName: true, lastName: true, emailNotifications: true },
       }),
       prisma.workOrder.findUnique({
         where: { id: data.workOrderId },
@@ -84,6 +84,11 @@ export class NotificationService {
 
     if (!user || !workOrder) {
       console.log('[NOTIFICATION] User or work order not found, skipping email. User:', !!user, 'WorkOrder:', !!workOrder)
+      return
+    }
+
+    if (!user.emailNotifications) {
+      console.log('[NOTIFICATION] Email notifications disabled for user, skipping email:', user.email)
       return
     }
     console.log('[NOTIFICATION] Sending email to:', user.email, 'for work order:', workOrder.title)
